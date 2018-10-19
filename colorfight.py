@@ -16,7 +16,7 @@ def CheckToken(token):
 
 class Cell:
     def __init__(self, cellData):
-        self.owner      = cellData['o']
+        self.owner      = cellData['o'] # 0 means empty
         self.attacker   = cellData['a']
         self.isTaking   = cellData['c'] == 1
         self.x          = cellData['x']
@@ -150,7 +150,7 @@ class Game:
         else:
             return False, None, "You need to join the game first!"
     
-    def Blast(self, x, y, direction):
+    def Blast(self, x, y, direction): # centered from your cell, 8 cells cleared
         if self.token != '':
             if direction not in ["square", "vertical", "horizontal"]:
                 return False, None, "Wrong direction!"
