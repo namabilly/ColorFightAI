@@ -1,13 +1,15 @@
 # You need to import colorfight for all the APIs
 import colorfight
 import random
+import math
 
 # Strategies
 # 1. Go for the energy cell
-# 2. Greedy expand
-# 3. Select move with least neighbors
-# 4. Go for the base!
-# 5. Self defense
+# 2. Go for the gold cell
+# 3. Greedy expand
+# 4. Select move with least neighbors
+# 5. Go for the base!
+# 6. Self defense
 
 # TODO: Implement graph
 # things can be done each turn:
@@ -22,6 +24,8 @@ import random
 class NamabillyAI:
 	
 	directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+	ENERGY_ENABLED = False
+	BASE_ENABLED = False
 	
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -34,7 +38,7 @@ class NamabillyAI:
 		self.gold_cell = [] # 18
 		self.enemy_base = []
 		self.target = []
-		self.modes = ["energy", "fast", "safe", "attack", "defend"]
+		self.modes = ["energy", "gold", "fast", "safe", "attack", "defend"]
 		self.status = {
 			'energy': 0,
 			'energyGrowth': 0,
@@ -46,6 +50,9 @@ class NamabillyAI:
 			'isDangerous': False,
 			'mode': 0
 		}
+		self.graph = []
+		self.gr = []
+		self.path = []
 		
 	def run(self):
 		if self.isJoined:
@@ -57,6 +64,9 @@ class NamabillyAI:
 						self.energy_cell.append((x, y))
 					elif c.cellType == 'gold':
 						self.gold_cell.append((x, y))
+						
+			# initialize graph
+			self.init_graph()
 			
 			while True:
 				# do stuff
@@ -87,7 +97,7 @@ class NamabillyAI:
 		for cell in self.my_cell:
 			if self.g.GetCell(cell[0], cell[1]).isBase:
 				self.my_base.append(cell)
-				
+		
 		# update neighbors & borders
 		self.neighbor_cell = []
 		self.border_cell = []
@@ -112,7 +122,7 @@ class NamabillyAI:
 			self.status['goldGrowth'] = diff
 		self.status['gold'] = self.g.gold
 		self.status['cellNum'] = self.g.cellNum
-		self.status['baseNum'] = self.g.baseNum
+		self.status['baseNum'] = 0 # self.g.baseNum
 		self.status['cdTime'] = self.g.cdTime
 		self.status['isDangerous'] = False
 		# danger status; needs to be fixed
@@ -129,15 +139,17 @@ class NamabillyAI:
 
 		# update mode
 		if self.status['isDangerous']:
-			self.status['mode'] = 4
-		elif self.status['energyGrowth'] < 0.3:
+			self.status['mode'] = 5
+		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3:
 			self.status['mode'] = 0
-		elif self.status['cellNum'] < 100:
+		elif self.status['goldGrowth'] < 0.5:
 			self.status['mode'] = 1
-		elif self.status['cellNum'] < 200:
+		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
-		else:
+		elif self.status['cellNum'] < 200:
 			self.status['mode'] = 3
+		else:
+			self.status['mode'] = 4
 		
 		# get target
 		self.get_target()
@@ -156,9 +168,31 @@ class NamabillyAI:
 		# mode 0 - energy
 		# needs graph, shortest path
 		if self.modes[self.status['mode']] == "energy":
-			self.status['mode'] = 1
-			self.get_target()
-		# mode 1 - fast
+			self.dijkstra("energy")
+			ver = None
+			if self.path:
+				ver = self.path.pop()
+			while(self.path and (ver.x, ver.y) not in self.neighbor_cell):
+				ver = self.path.pop()
+			if ver:
+				self.target.append((ver.x, ver.y))
+			else:
+				self.update()
+		# mode 1 - gold
+		# shortest path
+		elif self.modes[self.status['mode']] == "gold":
+			self.dijkstra("gold")
+			ver = None
+			if self.path:
+				ver = self.path.pop()
+			while(self.path and (ver.x, ver.y) not in self.neighbor_cell):
+				ver = self.path.pop()
+			if ver:
+				print(ver)
+				self.target.append((ver.x, ver.y))
+			else:
+				self.update()
+		# mode 2 - fast
 		# greedy expand
 		# assign value to neighbor cells, choose the highest one, i.e. shorter time and better benefit
 		elif self.modes[self.status['mode']] == "fast":
@@ -172,18 +206,18 @@ class NamabillyAI:
 					break
 			else:
 				self.target.append(neighborCell[0].x, neighborCell[0].y)
-		# mode 2 - safe
+		# mode 3 - safe
 		# now you want to play safe
 		# choose the move to minimize neighbors
 		elif self.modes[self.status['mode']] == "safe":
 			self.status['mode'] = 1
 			self.get_target()
-		# mode 3 - attack
+		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
 			self.status['mode'] = 1
 			self.get_target()
-		# mode 4 - defend
+		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
 			self.status['mode'] = 1
@@ -193,6 +227,8 @@ class NamabillyAI:
 			
 	def get_val(self, cell):
 		take_time = cell.takeTime
+		if take_time < 0:
+			return 0
 		neighborNum = 0
 		type = cell.cellType
 		val = 1
@@ -208,7 +244,19 @@ class NamabillyAI:
 				if c.owner == self.g.uid:
 					neighborNum += 1
 		return val / ((take_time * min(1, 1 - 0.25*(neighborNum - 1))) / (1 + self.status['energy']/200.0))
-			
+		
+	def get_take_time(self, cell):
+		take_time = cell.takeTime
+		if take_time < 0:
+			return math.inf
+		neighborNum = 0
+		for d in self.directions:
+			c = self.g.GetCell(cell.x+d[0], cell.y+d[1])
+			if c != None:
+				if c.owner == self.g.uid:
+					neighborNum += 1
+		return take_time * min(1, 1 - 0.25*(neighborNum - 1)) / (1 + self.status['energy']/200.0)
+		
 	def move(self):
 		# build base - 60g, 30s
 		if self.status['baseNum'] < 3:
@@ -229,14 +277,108 @@ class NamabillyAI:
 								self.g.BuildBase(cell[0], cell[1])
 		
 		# reinforce border
-		for cell in self.border_cell:
-			c = self.g.GetCell(cell[0], cell[1])
-			if c.takeTime < 4.5:
-				print(self.g.AttackCell(cell[0], cell[1]))
-				self.update()
-				self.g.Refresh()
+		# for cell in self.border_cell:
+			# c = self.g.GetCell(cell[0], cell[1])
+			# if c.takeTime < 4.5:
+				# print(self.g.AttackCell(cell[0], cell[1]))
+				# self.update()
+				# self.g.Refresh()	
 		
 		return
+
+	def init_graph(self):
+		self.graph = []
+		self.gr = [[Vertex(0, 0, 0) for i in range(self.g.width)] for j in range(self.g.height)]
+		# the graph
+		for x in range(self.g.width):
+			for y in range(self.g.height):
+				v = Vertex(x, y, 0)
+				self.gr[x][y] = v
+				self.graph.append(v)
+		# add successor
+		for x in range(self.g.width):
+			for y in range(self.g.height):
+				for d in self.directions:
+					if 0 <= x+d[0] < self.g.width and 0 <= y+d[1] < self.g.height:
+						self.gr[x][y].add_successor(self.gr[x+d[0]][y+d[1]])
+		
+	def refresh_graph(self):
+		for x in range(self.g.width):
+			for y in range(self.g.height):
+				c = self.g.GetCell(x, y)
+				self.gr[x][y].val = self.get_take_time(c)
+				self.gr[x][y].dist = math.inf
+				self.gr[x][y].preBest = None
+		
+	def dijkstra(self, tar):
+		self.refresh_graph()
+		search_set = []
+		searched_set = []
+		# source = []
+		target = []
+		targets = []
+		for cell in self.border_cell:
+			self.gr[cell[0]][cell[1]].dist = 0
+			search_set.append(self.gr[cell[0]][cell[1]])
+		
+		if tar == 'energy':
+			target = self.energy_cell
+		elif tar == 'gold':
+			target = self.gold_cell
+		elif tar == 'base':
+			target = self.enemy_base
+		else:
+			print("Error: invalid target!")
+			return
+		
+		for cell in target:
+			if cell not in self.my_cell:
+				targets.append(self.gr[cell[0]][cell[1]])
+		
+		v = Vertex(-1, 0, 0)
+		
+		while (search_set):
+			min = math.inf
+			for ver in search_set:
+				if ver.dist < min:
+					min = ver.dist
+					v = ver
+			search_set.remove(v)
+			searched_set.append(v)
+			if v in targets:
+				break
+			for ver in v.successor:
+				if ver not in searched_set and (ver.x, ver.y) not in self.my_cell:
+					if ver not in search_set:
+						search_set.append(ver)
+					c = v.dist + ver.val
+					if ver.dist > c:
+						ver.dist = c
+						ver.preBest = v
+		self.path = []
+		while(v.preBest):
+			self.path.append(v)
+			v = v.preBest
+		
+						
+class Vertex:
+	
+	def __init__(self, x, y, val):
+		self.x = x
+		self.y = y
+		self.val = val # cost
+		self.dist = math.inf
+		self.successor = []
+		self.preBest = None
+
+	def add_successor(self, v):
+		self.successor.append(v)
+	
+	def get_successor(self):
+		return self.successor
+		
+	def __str__(self):
+		return str(self.x)+" "+str(self.y)+" "+str(self.val)+" "+str(self.dist)
 	
 	
 if __name__ == '__main__':
