@@ -10,6 +10,14 @@ import random
 # 5. Self defense
 
 # TODO: Implement graph
+# things can be done each turn:
+# 	attack: ?s
+# 	defend: ?s
+# 	build base: 60g, 30s
+# 	blastattack: 30e 
+# 	blastdefend: 40g, 40e, not available in this version
+# 	multiattack: 40g, considered later
+# 	boost: 15e
 
 class NamabillyAI:
 	
@@ -52,11 +60,12 @@ class NamabillyAI:
 			
 			while True:
 				# do stuff
+				self.g.Refresh()
 				self.update()
-				# print(self.status)
+				print(self.status)
+				self.move()
 				cell = self.target[0]
 				print(self.g.AttackCell(cell[0], cell[1]))
-				self.g.Refresh()
 		else:
 			print("Failed to join game!")
 	
@@ -130,35 +139,103 @@ class NamabillyAI:
 		else:
 			self.status['mode'] = 3
 		
+		# get target
 		self.get_target()
+	
+	def get_neighbors(self, cells):
+		neighbors = []
+		for cell in cells:
+			for d in self.directions:
+				if 0 <= cell[0]+d[0] < self.g.width and 0 <= cell[1]+d[1] < self.g.height:
+					if (cell[0]+d[0], cell[1]+d[1]) not in neighbors:
+						neighbors.append((cell[0]+d[0], cell[1]+d[1]))
+		return neighbors
 	
 	def get_target(self):
 		self.target = []
 		# mode 0 - energy
-		
-		neighborCell = []
-		for cell in self.neighbor_cell:
-			neighborCell.append(self.g.GetCell(cell[0], cell[1]))
-		neighborCell.sort(key = self.get_take_time)
-		for cell in neighborCell:
-			if not cell.isTaking:
-				self.target.append((cell.x, cell.y))
-				break
+		# needs graph, shortest path
+		if self.modes[self.status['mode']] == "energy":
+			self.status['mode'] = 1
+			self.get_target()
+		# mode 1 - fast
+		# greedy expand
+		# assign value to neighbor cells, choose the highest one, i.e. shorter time and better benefit
+		elif self.modes[self.status['mode']] == "fast":
+			neighborCell = []
+			for cell in self.neighbor_cell:
+				neighborCell.append(self.g.GetCell(cell[0], cell[1]))
+			neighborCell.sort(key = self.get_val, reverse = True)
+			for cell in neighborCell:
+				if not cell.isTaking:
+					self.target.append((cell.x, cell.y))
+					break
+			else:
+				self.target.append(neighborCell[0].x, neighborCell[0].y)
+		# mode 2 - safe
+		# now you want to play safe
+		# choose the move to minimize neighbors
+		elif self.modes[self.status['mode']] == "safe":
+			self.status['mode'] = 1
+			self.get_target()
+		# mode 3 - attack
+		# get rid of other players!
+		elif self.modes[self.status['mode']] == "attack":
+			self.status['mode'] = 1
+			self.get_target()
+		# mode 4 - defend
+		# not too much of a concern now
+		elif self.modes[self.status['mode']] == "defend":
+			self.status['mode'] = 1
+			self.get_target()
 		else:
-			self.target.append(neighborCell[0].x, neighborCell[0].y)
+			print("Error: mode not defined.")
 			
-	def get_take_time(self, cell):
+	def get_val(self, cell):
 		take_time = cell.takeTime
-		neighborNum = 0;
+		neighborNum = 0
+		type = cell.cellType
+		val = 1
+		if type == 'gold':
+			val = 10
+		elif type == 'energy':
+			val = 3
+		else:
+			val = 1
 		for d in self.directions:
 			c = self.g.GetCell(cell.x+d[0], cell.y+d[1])
 			if c != None:
 				if c.owner == self.g.uid:
 					neighborNum += 1
-		return (take_time * min(1, 1 - 0.25*(neighborNum - 1))) / (1 + self.status['energy']/200.0)
+		return val / ((take_time * min(1, 1 - 0.25*(neighborNum - 1))) / (1 + self.status['energy']/200.0))
 			
 	def move(self):
-		# build base; cost 60g, 30s
+		# build base - 60g, 30s
+		if self.status['baseNum'] < 3:
+			if self.status['gold'] > 60:
+				if self.status['baseNum'] < 2:
+					if self.status['cellNum'] > 30:
+						random.shuffle(self.my_cell)
+						for cell in self.my_cell:
+							if cell not in self.border_cell and cell not in self.my_base\
+							and cell not in self.get_neighbors(self.my_base):
+								if not self.g.GetCell(cell[0], cell[1]).isTaking:
+									self.g.BuildBase(cell[0], cell[1])
+				elif self.status['cellNum'] > 50:
+					for cell in self.my_cell:
+						if cell not in self.border_cell and cell not in self.my_base\
+						and cell not in self.get_neighbors(self.my_base):
+							if not self.g.GetCell(cell[0], cell[1]).isTaking:
+								self.g.BuildBase(cell[0], cell[1])
+		
+		# reinforce border
+		for cell in self.border_cell:
+			c = self.g.GetCell(cell[0], cell[1])
+			if c.takeTime < 4.5:
+				print(self.g.AttackCell(cell[0], cell[1]))
+				self.update()
+				self.g.Refresh()
+		
 		return
 	
 	
