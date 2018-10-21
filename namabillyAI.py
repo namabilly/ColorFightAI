@@ -118,6 +118,9 @@ class NamabillyAI:
 							self.neighbor_enemy.append(c.owner)
 						if cell not in self.border_cell:
 							self.border_cell.append(cell)
+					if self.g.GetCell(x, y).isTaking:
+						if (x+d[0], y+d[1]) in self.my_cell and (x+d[0], y+d[1]) not in self.border_cell:
+							self.border_cell.append((x+d[0], y+d[1]))
 		
 		# update status
 		diff = self.g.energy - self.status['energy']
@@ -186,8 +189,6 @@ class NamabillyAI:
 			ver = None
 			if self.path:
 				ver = self.path.pop()
-			while(self.path and (ver.x, ver.y) not in self.neighbor_cell):
-				ver = self.path.pop()
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
@@ -198,8 +199,6 @@ class NamabillyAI:
 			self.dijkstra("gold")
 			ver = None
 			if self.path:
-				ver = self.path.pop()
-			while(self.path and (ver.x, ver.y) not in self.neighbor_cell):
 				ver = self.path.pop()
 			if ver:
 				self.target.append((ver.x, ver.y))
@@ -229,12 +228,18 @@ class NamabillyAI:
 			neighborCell.sort(key = self.get_val, reverse = True)
 			for cell in neighborCell:
 				if not cell.isTaking:
+					isSafe = True
 					for d in self.directions:
 						c = self.g.GetCell(cell.x+d[0], cell.y+d[1])
 						if c != None:
-							if c.owner in self.neighbor_enemy or c.owner == 0:
-								self.target.append((cell.x, cell.y))
+							if c.owner in self.neighbor_enemy or c.owner == 0 or c.owner == self.g.uid:
+								isSafe = True
+							else:
+								isSafe = False
 								break
+					if isSafe:
+						self.target.append((cell.x, cell.y))
+						break
 			else:
 				self.target.append((neighborCell[0].x, neighborCell[0].y))
 		# mode 4 - attack
@@ -313,7 +318,7 @@ class NamabillyAI:
 									self.g.BuildBase(cell[0], cell[1])
 		
 		# reinforce border
-		if self.status['mode'] != 1 and len(self.border_cell) < 30:
+		if self.status['mode'] != 0 and self.status['mode'] != 1 and len(self.border_cell) < 40:
 			for cell in self.border_cell:
 				c = self.g.GetCell(cell[0], cell[1])
 				for d in self.directions:
