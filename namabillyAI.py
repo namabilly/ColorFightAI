@@ -11,7 +11,7 @@ import math
 # 5. Go for the base!
 # 6. Self defense
 
-# TODO: Implement graph
+# TODO: Use skills
 # things can be done each turn:
 # 	attack: ?s
 # 	defend: ?s
@@ -49,6 +49,7 @@ class NamabillyAI:
 			'baseNum': 1,
 			'cdTime': 0,
 			'isDangerous': False,
+			'isTaking': False,
 			'mode': 0
 		}
 		self.graph = []
@@ -74,9 +75,11 @@ class NamabillyAI:
 				self.g.Refresh()
 				self.update()
 				print(self.status)
-				self.move()
-				cell = self.target[0]
-				print(self.g.AttackCell(cell[0], cell[1]))
+				if not self.status['isTaking']:
+					self.move()
+					cell = self.target[0]
+					print(self.g.AttackCell(cell[0], cell[1]))
+					self.status['isTaking'] = True
 		else:
 			print("Failed to join game!")
 	
@@ -128,6 +131,10 @@ class NamabillyAI:
 		self.status['cellNum'] = self.g.cellNum
 		self.status['baseNum'] = 0 # self.g.baseNum
 		self.status['cdTime'] = self.g.cdTime
+		if self.g.currTime > self.status['cdTime']:
+			self.status['isTaking'] = False
+		else:
+			self.status['isTaking'] = True
 		self.status['isDangerous'] = False
 		# danger status; needs to be fixed
 		if self.status['baseNum'] == 1:
@@ -154,6 +161,9 @@ class NamabillyAI:
 			self.status['mode'] = 3
 		else:
 			self.status['mode'] = 4
+		
+		# test
+		self.status['mode'] = 1
 		
 		# get target
 		self.get_target()
@@ -192,7 +202,6 @@ class NamabillyAI:
 			while(self.path and (ver.x, ver.y) not in self.neighbor_cell):
 				ver = self.path.pop()
 			if ver:
-				print(ver)
 				self.target.append((ver.x, ver.y))
 			else:
 				self.update()
@@ -227,7 +236,7 @@ class NamabillyAI:
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
-			s elf.status['mode'] = 3
+			self.status['mode'] = 3
 			self.get_target()
 		# mode 5 - defend
 		# not too much of a concern now
@@ -281,22 +290,23 @@ class NamabillyAI:
 		
 	def move(self):
 		# build base - 60g, 30s
-		# if self.status['baseNum'] < 3:
-			# if self.status['gold'] > 60:
-				# if self.status['baseNum'] < 2:
-					# if self.status['cellNum'] > 30:
-						# random.shuffle(self.my_cell)
-						# for cell in self.my_cell:
-							# if cell not in self.border_cell and cell not in self.my_base\
-							# and cell not in self.get_neighbors(self.my_base):
-								# if not self.g.GetCell(cell[0], cell[1]).isTaking:
-									# self.g.BuildBase(cell[0], cell[1])
-				# elif self.status['cellNum'] > 50:
-					# for cell in self.my_cell:
-						# if cell not in self.border_cell and cell not in self.my_base\
-						# and cell not in self.get_neighbors(self.my_base):
-							# if not self.g.GetCell(cell[0], cell[1]).isTaking:
-								# self.g.BuildBase(cell[0], cell[1])
+		if self.BASE_ENABLED:
+			if self.status['baseNum'] < 3:
+				if self.status['gold'] > 60:
+					if self.status['baseNum'] < 2:
+						if self.status['cellNum'] > 30:
+							random.shuffle(self.my_cell)
+							for cell in self.my_cell:
+								if cell not in self.border_cell and cell not in self.my_base\
+								and cell not in self.get_neighbors(self.my_base):
+									if not self.g.GetCell(cell[0], cell[1]).isTaking:
+										self.g.BuildBase(cell[0], cell[1])
+					elif self.status['cellNum'] > 50:
+						for cell in self.my_cell:
+							if cell not in self.border_cell and cell not in self.my_base\
+							and cell not in self.get_neighbors(self.my_base):
+								if not self.g.GetCell(cell[0], cell[1]).isTaking:
+									self.g.BuildBase(cell[0], cell[1])
 		
 		# reinforce border
 		if self.status['mode'] != 1 and len(self.border_cell) < 30:
@@ -387,6 +397,7 @@ class NamabillyAI:
 		while(v.preBest):
 			self.path.append(v)
 			v = v.preBest
+		self.path.reverse()
 		
 						
 class Vertex:
