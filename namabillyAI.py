@@ -129,7 +129,7 @@ class NamabillyAI:
 			self.status['goldGrowth'] = diff
 		self.status['gold'] = self.g.gold
 		self.status['cellNum'] = self.g.cellNum
-		self.status['baseNum'] = 0 # self.g.baseNum
+		self.status['baseNum'] = self.g.baseNum if self.BASE_ENABLED else 0
 		self.status['cdTime'] = self.g.cdTime
 		if self.g.currTime > self.status['cdTime']:
 			self.status['isTaking'] = False
@@ -163,7 +163,7 @@ class NamabillyAI:
 			self.status['mode'] = 4
 		
 		# test
-		self.status['mode'] = 1
+		# self.status['mode'] = 1
 		
 		# get target
 		self.get_target()
@@ -228,11 +228,15 @@ class NamabillyAI:
 				neighborCell.append(self.g.GetCell(cell[0], cell[1]))
 			neighborCell.sort(key = self.get_val, reverse = True)
 			for cell in neighborCell:
-				if not cell.isTaking and (cell.owner in self.neighbor_enemy or cell.owner == 0):
-					self.target.append((cell.x, cell.y))
-					break
+				if not cell.isTaking:
+					for d in self.directions:
+						c = self.g.GetCell(cell.x+d[0], cell.y+d[1])
+						if c != None:
+							if c.owner in self.neighbor_enemy or c.owner == 0:
+								self.target.append((cell.x, cell.y))
+								break
 			else:
-				self.target.append(neighborCell[0].x, neighborCell[0].y)
+				self.target.append((neighborCell[0].x, neighborCell[0].y))
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
