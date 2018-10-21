@@ -37,6 +37,7 @@ class NamabillyAI:
 		self.energy_cell = [] # 18
 		self.gold_cell = [] # 18
 		self.enemy_base = []
+		self.neighbor_enemy = []
 		self.target = []
 		self.modes = ["energy", "gold", "fast", "safe", "attack", "defend"]
 		self.status = {
@@ -98,9 +99,10 @@ class NamabillyAI:
 			if self.g.GetCell(cell[0], cell[1]).isBase:
 				self.my_base.append(cell)
 		
-		# update neighbors & borders
+		# update neighbors & borders & enemy type
 		self.neighbor_cell = []
 		self.border_cell = []
+		self.neighbor_enemy = []
 		for cell in self.my_cell:
 			x, y = cell
 			for d in self.directions:
@@ -109,6 +111,8 @@ class NamabillyAI:
 					if c.owner != self.g.uid:
 						if c not in self.neighbor_cell:
 							self.neighbor_cell.append((x+d[0], y+d[1]))
+						if c.owner not in self.neighbor_enemy and c.owner != 0:
+							self.neighbor_enemy.append(c.owner)
 						if cell not in self.border_cell:
 							self.border_cell.append(cell)
 		
@@ -142,7 +146,7 @@ class NamabillyAI:
 			self.status['mode'] = 5
 		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3:
 			self.status['mode'] = 0
-		elif self.status['goldGrowth'] < 0.5:
+		elif self.g.goldCellNum < 1:
 			self.status['mode'] = 1
 		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
@@ -199,7 +203,7 @@ class NamabillyAI:
 			neighborCell = []
 			for cell in self.neighbor_cell:
 				neighborCell.append(self.g.GetCell(cell[0], cell[1]))
-			neighborCell.sort(key = self.get_val, reverse = True)
+			neighborCell.sort(key = self.get_val_corner, reverse = True)
 			for cell in neighborCell:
 				if not cell.isTaking:
 					self.target.append((cell.x, cell.y))
@@ -208,19 +212,27 @@ class NamabillyAI:
 				self.target.append(neighborCell[0].x, neighborCell[0].y)
 		# mode 3 - safe
 		# now you want to play safe
-		# choose the move to minimize neighbors
+		# choose the move to minimize type of neighbors
 		elif self.modes[self.status['mode']] == "safe":
-			self.status['mode'] = 1
-			self.get_target()
+			neighborCell = []
+			for cell in self.neighbor_cell:
+				neighborCell.append(self.g.GetCell(cell[0], cell[1]))
+			neighborCell.sort(key = self.get_val, reverse = True)
+			for cell in neighborCell:
+				if not cell.isTaking and (cell.owner in self.neighbor_enemy or cell.owner == 0):
+					self.target.append((cell.x, cell.y))
+					break
+			else:
+				self.target.append(neighborCell[0].x, neighborCell[0].y)
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
-			self.status['mode'] = 1
+			s elf.status['mode'] = 3
 			self.get_target()
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
-			self.status['mode'] = 1
+			self.status['mode'] = 2
 			self.get_target()
 		else:
 			print("Error: mode not defined.")
@@ -245,6 +257,16 @@ class NamabillyAI:
 					neighborNum += 1
 		return val / ((take_time * min(1, 1 - 0.25*(neighborNum - 1))) / (1 + self.status['energy']/200.0))
 		
+	def map_corner(self, cell):
+		x = cell.x
+		y = cell.y
+		valX = abs(x - (self.g.width-1)/2)
+		valY = abs(y - (self.g.height-1)/2)
+		return (valX / (self.g.width/2))**2 + (valY / (self.g.height/2))**2
+	
+	def get_val_corner(self, cell):
+		return self.map_corner(cell) * self.get_val(cell)
+	
 	def get_take_time(self, cell):
 		take_time = cell.takeTime
 		if take_time < 0:
@@ -259,31 +281,37 @@ class NamabillyAI:
 		
 	def move(self):
 		# build base - 60g, 30s
-		if self.status['baseNum'] < 3:
-			if self.status['gold'] > 60:
-				if self.status['baseNum'] < 2:
-					if self.status['cellNum'] > 30:
-						random.shuffle(self.my_cell)
-						for cell in self.my_cell:
-							if cell not in self.border_cell and cell not in self.my_base\
-							and cell not in self.get_neighbors(self.my_base):
-								if not self.g.GetCell(cell[0], cell[1]).isTaking:
-									self.g.BuildBase(cell[0], cell[1])
-				elif self.status['cellNum'] > 50:
-					for cell in self.my_cell:
-						if cell not in self.border_cell and cell not in self.my_base\
-						and cell not in self.get_neighbors(self.my_base):
-							if not self.g.GetCell(cell[0], cell[1]).isTaking:
-								self.g.BuildBase(cell[0], cell[1])
+		# if self.status['baseNum'] < 3:
+			# if self.status['gold'] > 60:
+				# if self.status['baseNum'] < 2:
+					# if self.status['cellNum'] > 30:
+						# random.shuffle(self.my_cell)
+						# for cell in self.my_cell:
+							# if cell not in self.border_cell and cell not in self.my_base\
+							# and cell not in self.get_neighbors(self.my_base):
+								# if not self.g.GetCell(cell[0], cell[1]).isTaking:
+									# self.g.BuildBase(cell[0], cell[1])
+				# elif self.status['cellNum'] > 50:
+					# for cell in self.my_cell:
+						# if cell not in self.border_cell and cell not in self.my_base\
+						# and cell not in self.get_neighbors(self.my_base):
+							# if not self.g.GetCell(cell[0], cell[1]).isTaking:
+								# self.g.BuildBase(cell[0], cell[1])
 		
 		# reinforce border
-		# for cell in self.border_cell:
-			# c = self.g.GetCell(cell[0], cell[1])
-			# if c.takeTime < 4.5:
-				# print(self.g.AttackCell(cell[0], cell[1]))
-				# self.update()
-				# self.g.Refresh()	
-		
+		if self.status['mode'] != 1 and len(self.border_cell) < 30:
+			for cell in self.border_cell:
+				c = self.g.GetCell(cell[0], cell[1])
+				for d in self.directions:
+					cc = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+					if cc != None:
+						if cc.owner != 0 and cc.owner != self.g.uid: 
+							if 1 < c.takeTime < 4:
+								print(self.g.AttackCell(cell[0], cell[1]))
+								self.update()
+								self.g.Refresh()	
+								break
+			
 		return
 
 	def init_graph(self):
