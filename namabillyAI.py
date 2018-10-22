@@ -78,6 +78,7 @@ class NamabillyAI:
 				if not self.status['isTaking']:
 					self.move()
 					cell = self.target[0]
+					print(str(cell[0])+" "+str(cell[1]))
 					print(self.g.AttackCell(cell[0], cell[1]))
 					self.status['isTaking'] = True
 		else:
@@ -156,7 +157,7 @@ class NamabillyAI:
 			self.status['mode'] = 5
 		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3:
 			self.status['mode'] = 0
-		elif self.g.goldCellNum < 1:
+		elif self.g.goldCellNum < 3:
 			self.status['mode'] = 1
 		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
@@ -406,7 +407,6 @@ class NamabillyAI:
 		while(v.preBest):
 			self.path.append(v)
 			v = v.preBest
-		self.path.reverse()
 		
 						
 class Vertex:
