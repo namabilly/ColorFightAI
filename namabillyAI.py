@@ -39,6 +39,11 @@ class NamabillyAI:
 		self.gold_cell = [] # 18
 		self.enemy_base = []
 		self.neighbor_enemy = []
+		self.on_enemy = 0
+		self.on_enemy_cell = []
+		self.on_enemy_base = []
+		self.on_enemy_base_round = []
+		self.getBaseRound = False
 		self.target = []
 		self.modes = ["energy", "gold", "fast", "safe", "attack", "defend"]
 		self.status = {
@@ -86,9 +91,10 @@ class NamabillyAI:
 	
 	def update(self):
 		
-		# update my cells & enemy bases
+		# update my cells & enemy bases & on enemy cell
 		self.my_cell = []
 		self.enemy_base = []
+		self.on_enemy_cell = []
 		for x in range(self.g.width):
 			for y in range(self.g.height):
 				c = self.g.GetCell(x, y)
@@ -96,6 +102,10 @@ class NamabillyAI:
 					self.my_cell.append((x, y))
 				elif c.isBase:
 					self.enemy_base.append((x, y))
+				if self.on_enemy != 0 and c.owner == self.on_enemy:
+					self.on_enemy_cell.append((x, y))
+		if not self.on_enemy_cell:
+			self.on_enemy = 0
 		
 		# update my bases
 		self.my_base = []
@@ -155,16 +165,18 @@ class NamabillyAI:
 		# update mode
 		if self.status['isDangerous']:
 			self.status['mode'] = 5
-		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 5:
+		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 3:
 			self.status['mode'] = 0
-		elif self.g.goldCellNum < 3:
+		elif self.g.goldCellNum < 1:
 			self.status['mode'] = 1
 		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
-		elif self.status['cellNum'] < 200:
+		elif self.status['cellNum'] < 150:
 			self.status['mode'] = 3
-		else:
+		elif self.neighbor_enemy:
 			self.status['mode'] = 4
+		else:
+			self.status['mode'] = 2
 		
 		# test
 		# self.status['mode'] = 1
@@ -246,8 +258,17 @@ class NamabillyAI:
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
-			self.status['mode'] = 3
-			self.get_target()
+			if not self.getBaseRound:
+				self.dijkstra('base')
+			else:
+				self.dijkstra('base_round')
+			ver = None
+			if self.path:
+				ver = self.path.pop()
+			if ver:
+				self.target.append((ver.x, ver.y))
+			else:
+				self.update()
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
@@ -318,6 +339,25 @@ class NamabillyAI:
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									self.g.BuildBase(cell[0], cell[1])
 		
+		print(self.on_enemy)
+		# attack base - basic
+		if self.modes[self.status['mode']] == 'attack':
+			if self.on_enemy != 0:
+				if self.on_enemy_base:
+					cell = self.on_enemy_base[0]
+					if cell in self.neighbor_cell:
+						self.on_enemy_base_round = []
+						for d in self.directions:
+							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+							if c != None:
+								if c.owner == self.on_enemy:
+									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+						if self.on_enemy_base_round:
+							self.getBaseRound = True
+						else:
+							self.getBaseRound = False
+							
+		
 		# reinforce base
 		if self.BASE_ENABLED:
 			for base in self.my_base:
@@ -329,7 +369,8 @@ class NamabillyAI:
 								print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
 		
 		# reinforce border
-		if self.status['mode'] != 0 and self.status['mode'] != 1 and len(self.border_cell) < 40:
+		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
+		and len(self.border_cell) < 40:
 			for cell in self.border_cell:
 				c = self.g.GetCell(cell[0], cell[1])
 				for d in self.directions:
@@ -339,7 +380,7 @@ class NamabillyAI:
 							if 1 < c.takeTime < 4:
 								print(self.g.AttackCell(cell[0], cell[1]))
 								self.update()
-								self.g.Refresh()	
+								self.g.Refresh()
 								break
 			
 		return
@@ -385,13 +426,35 @@ class NamabillyAI:
 			target = self.gold_cell
 		elif tar == 'base':
 			target = self.enemy_base
+		elif tar == 'base_round':
+			target = self.on_enemy_base_round
 		else:
 			print("Error: invalid target!")
 			return
 		
 		for cell in target:
 			if cell not in self.my_cell:
-				targets.append(self.gr[cell[0]][cell[1]])
+				if tar != 'base':
+					targets.append(self.gr[cell[0]][cell[1]])
+				else:
+					if self.on_enemy == 0:
+						targets.append(self.gr[cell[0]][cell[1]])
+					else:
+						c = self.g.GetCell(cell[0], cell[1])
+						if c.owner == self.on_enemy:
+							targets.append(self.gr[cell[0]][cell[1]])
+		
+		if tar == 'base' and self.on_enemy != 0:
+			for cell in self.on_enemy_cell:
+				c = self.g.GetCell(cell[0], cell[1])
+				if c.isBuilding:
+					targets = []
+					targets.append(self.gr[cell[0]][cell[1]])
+					break
+		
+		if tar == 'base_round':
+			base = self.on_enemy_base[0]
+			self.gr[base[0]][base[1]].val = math.inf
 		
 		v = Vertex(-1, 0, 0)
 		
@@ -413,6 +476,14 @@ class NamabillyAI:
 					if ver.dist > c:
 						ver.dist = c
 						ver.preBest = v
+						
+		if tar == 'base':
+			if self.on_enemy == 0:
+				b = self.g.GetCell(v.x, v.y)
+				self.on_enemy = b.owner
+			self.on_enemy_base = []
+			self.on_enemy_base.append((v.x, v.y))
+		
 		self.path = []
 		while(v.preBest):
 			self.path.append(v)
