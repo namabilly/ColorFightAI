@@ -24,8 +24,9 @@ import math
 class NamabillyAI:
 	
 	directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-	ENERGY_ENABLED = False
-	BASE_ENABLED = False
+	surroundings = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+	ENERGY_ENABLED = True
+	BASE_ENABLED = True
 	
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -80,7 +81,6 @@ class NamabillyAI:
 					cell = self.target[0]
 					print(str(cell[0])+" "+str(cell[1]))
 					print(self.g.AttackCell(cell[0], cell[1]))
-					self.status['isTaking'] = True
 		else:
 			print("Failed to join game!")
 	
@@ -155,7 +155,7 @@ class NamabillyAI:
 		# update mode
 		if self.status['isDangerous']:
 			self.status['mode'] = 5
-		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3:
+		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 5:
 			self.status['mode'] = 0
 		elif self.g.goldCellNum < 3:
 			self.status['mode'] = 1
@@ -318,6 +318,16 @@ class NamabillyAI:
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									self.g.BuildBase(cell[0], cell[1])
 		
+		# reinforce base
+		if self.BASE_ENABLED:
+			for base in self.my_base:
+				for s in self.surroundings:
+					c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
+					if c != None:
+						if c.owner != self.g.uid:
+							if not self.status['isTaking']:
+								print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+		
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and len(self.border_cell) < 40:
 			for cell in self.border_cell:
@@ -407,6 +417,35 @@ class NamabillyAI:
 		while(v.preBest):
 			self.path.append(v)
 			v = v.preBest
+			
+	# whther boost or not
+	def boost(self, cell):
+		take_time = self.get_take_time(cell)
+		if self.status['energy'] > 15:
+			if self.status['energy'] >= 90:
+				if take_time >= 1.5:
+					return True
+				else:
+					return False
+			elif self.status['energy'] >= 50:
+				if self.g.energyCellNum >= 3:
+					if take_time >= 3:
+						return True
+					else:
+						return False
+				elif self.g.energyCellNum >= 1:
+					if take_time >= 4:
+						return True
+					else:
+						return False
+				else:
+					return False
+			elif self.g.energyCellNum >= 5 and take_time >= 4:
+				return True
+			else:
+				return False
+		else:
+			return False
 		
 						
 class Vertex:
