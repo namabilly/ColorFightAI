@@ -82,6 +82,7 @@ class NamabillyAI:
 				self.update()
 				print(self.status)
 				if not self.status['isTaking']:
+					self.get_target()
 					self.move()
 					cell = self.target[0]
 					print(str(cell[0])+" "+str(cell[1]))
@@ -100,7 +101,7 @@ class NamabillyAI:
 				c = self.g.GetCell(x, y)
 				if c.owner == self.g.uid:
 					self.my_cell.append((x, y))
-				elif c.isBase:
+				elif c.isBase and not c.isTaking:
 					self.enemy_base.append((x, y))
 				if self.on_enemy != 0 and c.owner == self.on_enemy:
 					self.on_enemy_cell.append((x, y))
@@ -149,6 +150,7 @@ class NamabillyAI:
 			self.status['isTaking'] = False
 		else:
 			self.status['isTaking'] = True
+		print(self.status['isTaking'])
 		self.status['isDangerous'] = False
 		# danger status; needs to be fixed
 		if self.status['baseNum'] == 1:
@@ -180,9 +182,10 @@ class NamabillyAI:
 		
 		# test
 		# self.status['mode'] = 1
+		# self.status['mode'] = 4
 		
 		# get target
-		self.get_target()
+		# self.get_target()
 	
 	def get_neighbors(self, cells):
 		neighbors = []
@@ -206,6 +209,8 @@ class NamabillyAI:
 				self.target.append((ver.x, ver.y))
 			else:
 				self.update()
+				if not self.status['isTaking']:
+					self.get_target()
 		# mode 1 - gold
 		# shortest path
 		elif self.modes[self.status['mode']] == "gold":
@@ -217,6 +222,8 @@ class NamabillyAI:
 				self.target.append((ver.x, ver.y))
 			else:
 				self.update()
+				if not self.status['isTaking']:
+					self.get_target()
 		# mode 2 - fast
 		# greedy expand
 		# assign value to neighbor cells, choose the highest one, i.e. shorter time and better benefit
@@ -258,6 +265,22 @@ class NamabillyAI:
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
+			# attack base - basic
+			if self.on_enemy != 0:
+				if self.on_enemy_base:
+					cell = self.on_enemy_base[0]
+					if cell in self.neighbor_cell:
+						self.on_enemy_base_round = []
+						for d in self.directions:
+							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+							if c != None:
+								if c.owner == self.on_enemy:
+									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+						if self.on_enemy_base_round:
+							self.getBaseRound = True
+						else:
+							self.getBaseRound = False
+			print(len(self.on_enemy_base_round))
 			if not self.getBaseRound:
 				self.dijkstra('base')
 			else:
@@ -269,6 +292,8 @@ class NamabillyAI:
 				self.target.append((ver.x, ver.y))
 			else:
 				self.update()
+				if not self.status['isTaking']:
+					self.get_target()
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
@@ -339,25 +364,6 @@ class NamabillyAI:
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									self.g.BuildBase(cell[0], cell[1])
 		
-		print(self.on_enemy)
-		# attack base - basic
-		if self.modes[self.status['mode']] == 'attack':
-			if self.on_enemy != 0:
-				if self.on_enemy_base:
-					cell = self.on_enemy_base[0]
-					if cell in self.neighbor_cell:
-						self.on_enemy_base_round = []
-						for d in self.directions:
-							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
-							if c != None:
-								if c.owner == self.on_enemy:
-									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
-						if self.on_enemy_base_round:
-							self.getBaseRound = True
-						else:
-							self.getBaseRound = False
-							
-		
 		# reinforce base
 		if self.BASE_ENABLED:
 			for base in self.my_base:
@@ -410,6 +416,8 @@ class NamabillyAI:
 				self.gr[x][y].preBest = None
 		
 	def dijkstra(self, tar):
+		if self.status['isTaking']:
+			return
 		self.refresh_graph()
 		search_set = []
 		searched_set = []
@@ -428,6 +436,8 @@ class NamabillyAI:
 			target = self.enemy_base
 		elif tar == 'base_round':
 			target = self.on_enemy_base_round
+			base = self.on_enemy_base[0]
+			self.gr[base[0]][base[1]].val = math.inf
 		else:
 			print("Error: invalid target!")
 			return
@@ -452,10 +462,6 @@ class NamabillyAI:
 					targets.append(self.gr[cell[0]][cell[1]])
 					break
 		
-		if tar == 'base_round':
-			base = self.on_enemy_base[0]
-			self.gr[base[0]][base[1]].val = math.inf
-		
 		v = Vertex(-1, 0, 0)
 		
 		while (search_set):
@@ -464,6 +470,8 @@ class NamabillyAI:
 				if ver.dist < min:
 					min = ver.dist
 					v = ver
+			if v not in search_set:
+				break
 			search_set.remove(v)
 			searched_set.append(v)
 			if v in targets:
