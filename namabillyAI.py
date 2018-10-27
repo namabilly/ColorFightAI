@@ -107,13 +107,14 @@ class NamabillyAI:
 					self.on_enemy_cell.append((x, y))
 		if not self.on_enemy_cell:
 			self.on_enemy = 0
-			
 		# update on enemy base IMPORTANT when the target moves by accident
 		if self.on_enemy_base:
 			base = self.on_enemy_base[0]
 			bc = self.g.GetCell(base[0], base[1])
 			if not bc.isBase:
 				self.on_enemy_base = []
+				self.on_enemy = 0
+				self.on_enemy_cell = []
 		
 		# update my bases
 		self.my_base = []
@@ -371,6 +372,7 @@ class NamabillyAI:
 									if not self.g.GetCell(cell[0], cell[1]).isTaking:
 										self.g.BuildBase(cell[0], cell[1])
 					elif self.status['cellNum'] > 50:
+						random.shuffle(self.my_cell)
 						for cell in self.my_cell:
 							if cell not in self.border_cell and cell not in self.my_base\
 							and cell not in self.get_neighbors(self.my_base):
@@ -514,7 +516,7 @@ class NamabillyAI:
 						ver.preBest = v
 						
 		if tar == 'base':
-			if self.on_enemy == 0:
+			if self.on_enemy == 0 or not self.on_enemy_base:
 				b = self.g.GetCell(v.x, v.y)
 				self.on_enemy = b.owner
 			self.on_enemy_base = []
