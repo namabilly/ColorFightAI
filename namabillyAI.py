@@ -369,6 +369,9 @@ class NamabillyAI:
 							and cell not in self.get_neighbors(self.my_base):
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									self.g.BuildBase(cell[0], cell[1])
+									self.g.Refresh()
+									self.update()
+									break
 		
 		# reinforce base
 		if self.BASE_ENABLED:
@@ -381,6 +384,9 @@ class NamabillyAI:
 								if not self.status['isTaking'] and not c.isTaking:
 									if self.get_take_time(c) <= 5:
 										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+										self.g.Refresh()
+										self.update()
+										break
 			
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
