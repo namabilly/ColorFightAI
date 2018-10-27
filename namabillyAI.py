@@ -297,6 +297,9 @@ class NamabillyAI:
 				self.update()
 				if self.status['isTaking']:
 					self.get_target()
+			if ver.val >= 8:
+				self.status['mode'] = 3
+				self.get_target()
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
@@ -369,15 +372,16 @@ class NamabillyAI:
 		
 		# reinforce base
 		if self.BASE_ENABLED:
-			for base in self.my_base:
-				for s in self.surroundings:
-					c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
-					if c != None:
-						if c.owner != self.g.uid:
-							if not self.status['isTaking'] and not c.isTaking:
-								if self.get_take_time(c) <= 5:
-									print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
-		
+			if self.my_base:
+				for base in self.my_base:
+					for s in self.surroundings:
+						c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
+						if c != None:
+							if c.owner != self.g.uid:
+								if not self.status['isTaking'] and not c.isTaking:
+									if self.get_take_time(c) <= 5:
+										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+			
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
 		and len(self.border_cell) < 40:
