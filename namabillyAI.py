@@ -113,8 +113,7 @@ class NamabillyAI:
 			bc = self.g.GetCell(base[0], base[1])
 			if not bc.isBase:
 				self.on_enemy_base = []
-				self.on_enemy = 0
-				self.on_enemy_cell = []
+				# better not change on_enemy 'cause you want to stick on 1 target
 		
 		# update my bases
 		self.my_base = []
@@ -306,6 +305,15 @@ class NamabillyAI:
 				if self.status['isTaking']:
 					self.get_target()
 			if ver.val >= 8:
+				# change target
+				if self.neighbor_enemy:
+					for enemy in self.neighbor_enemy:
+						if enemy != self.on_enemy:
+							self.on_enemy = enemy
+							self.on_enemy_base = []
+							break
+				self.g.Refresh()
+				self.update()
 				self.status['mode'] = 3
 				self.get_target()
 		# mode 5 - defend
@@ -399,10 +407,12 @@ class NamabillyAI:
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
 									if 1 < c.takeTime <= 3.5:
-										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
-										self.g.Refresh()
-										self.update()
-										break
+										for ss in self.surroundings:
+											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
+												print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+												self.g.Refresh()
+												self.update()
+												break
 			
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
