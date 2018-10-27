@@ -307,10 +307,15 @@ class NamabillyAI:
 			if ver.val >= 8:
 				# change target
 				if self.neighbor_enemy:
+					random.shuffle(self.neighbor_enemy)
 					for enemy in self.neighbor_enemy:
 						if enemy != self.on_enemy:
 							self.on_enemy = enemy
 							self.on_enemy_base = []
+							for base in self.enemy_base:
+								bc = self.g.GetCell(base[0], base[1])
+								if bc.owner == self.on_enemy:
+									self.on_enemy_base.append((base[0], base[1]))
 							break
 				self.g.Refresh()
 				self.update()
