@@ -107,6 +107,13 @@ class NamabillyAI:
 					self.on_enemy_cell.append((x, y))
 		if not self.on_enemy_cell:
 			self.on_enemy = 0
+			
+		# update on enemy base IMPORTANT when the target moves by accident
+		if self.on_enemy_base:
+			base = self.on_enemy_base[0]
+			bc = self.g.GetCell(base[0], base[1])
+			if not bc.isBase:
+				self.on_enemy_base = []
 		
 		# update my bases
 		self.my_base = []
@@ -387,6 +394,13 @@ class NamabillyAI:
 										self.g.Refresh()
 										self.update()
 										break
+							else:
+								if not self.status['isTaking'] and not c.isTaking:
+									if 1 < c.takeTime <= 3.5:
+										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+										self.g.Refresh()
+										self.update()
+										break
 			
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
@@ -397,7 +411,7 @@ class NamabillyAI:
 					cc = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
 					if cc != None:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
-							if 1 < c.takeTime < 3.5:
+							if 1 < c.takeTime <= 3.5:
 								print(self.g.AttackCell(cell[0], cell[1]))
 								self.g.Refresh()
 								self.update()
