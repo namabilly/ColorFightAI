@@ -208,8 +208,9 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
+				self.g.Refresh()
 				self.update()
-				if not self.status['isTaking']:
+				if self.status['isTaking']:
 					self.get_target()
 		# mode 1 - gold
 		# shortest path
@@ -221,8 +222,9 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
+				self.g.Refresh()
 				self.update()
-				if not self.status['isTaking']:
+				if self.status['isTaking']:
 					self.get_target()
 		# mode 2 - fast
 		# greedy expand
@@ -276,7 +278,7 @@ class NamabillyAI:
 							if c != None:
 								if c.owner == self.on_enemy:
 									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
-						if self.on_enemy_base_round:
+						if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
 							self.getBaseRound = True
 						else:
 							self.getBaseRound = False
@@ -291,8 +293,9 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
+				self.g.Refresh()
 				self.update()
-				if not self.status['isTaking']:
+				if self.status['isTaking']:
 					self.get_target()
 		# mode 5 - defend
 		# not too much of a concern now
@@ -371,8 +374,9 @@ class NamabillyAI:
 					c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
 					if c != None:
 						if c.owner != self.g.uid:
-							if not self.status['isTaking']:
-								print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+							if not self.status['isTaking'] and not c.isTaking:
+								if self.get_take_time(c) <= 5:
+									print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
 		
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
@@ -383,10 +387,10 @@ class NamabillyAI:
 					cc = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
 					if cc != None:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
-							if 1 < c.takeTime < 4:
+							if 1 < c.takeTime < 3.5:
 								print(self.g.AttackCell(cell[0], cell[1]))
-								self.update()
 								self.g.Refresh()
+								self.update()
 								break
 			
 		return
@@ -454,7 +458,7 @@ class NamabillyAI:
 						if c.owner == self.on_enemy:
 							targets.append(self.gr[cell[0]][cell[1]])
 		
-		if tar == 'base' and self.on_enemy != 0:
+		if (tar == 'base' or tar == 'base_round') and self.on_enemy != 0:
 			for cell in self.on_enemy_cell:
 				c = self.g.GetCell(cell[0], cell[1])
 				if c.isBuilding:
