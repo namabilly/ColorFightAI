@@ -25,8 +25,13 @@ class NamabillyAI:
 	
 	directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 	surroundings = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+	horizontal = [(-4, 0), (-3, 0), (-2, 0), (-1, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
+	vertical = [(0, -4), (0, -3), (0, -2), (0, -1), (0, 1), (0, 2), (0, 3), (0, 4)]
+	multi = [(-2, 0), (-1, 1), (-1, -1), (0, 2), (0, -2), (1, 1), (1, -1), (2, 0)]
 	ENERGY_ENABLED = True
 	BASE_ENABLED = True
+	BLAST_ENABLED = True
+	MULTIATTACK_ENABLED = True
 	
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -78,7 +83,6 @@ class NamabillyAI:
 			
 			while True:
 				# do stuff
-				self.g.Refresh()
 				self.update()
 				print(self.status)
 				if not self.status['isTaking']:
@@ -91,6 +95,9 @@ class NamabillyAI:
 			print("Failed to join game!")
 	
 	def update(self):
+	
+		# refresh from server
+		self.g.Refresh()
 		
 		# update my cells & enemy bases & on enemy cell
 		self.my_cell = []
@@ -215,7 +222,6 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
-				self.g.Refresh()
 				self.update()
 				if self.status['isTaking']:
 					self.get_target()
@@ -229,7 +235,6 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
-				self.g.Refresh()
 				self.update()
 				if self.status['isTaking']:
 					self.get_target()
@@ -300,7 +305,6 @@ class NamabillyAI:
 			if ver:
 				self.target.append((ver.x, ver.y))
 			else:
-				self.g.Refresh()
 				self.update()
 				if self.status['isTaking']:
 					self.get_target()
@@ -317,7 +321,6 @@ class NamabillyAI:
 								if bc.owner == self.on_enemy:
 									self.on_enemy_base.append((base[0], base[1]))
 							break
-				self.g.Refresh()
 				self.update()
 				self.status['mode'] = 3
 				self.get_target()
@@ -391,7 +394,6 @@ class NamabillyAI:
 							and cell not in self.get_neighbors(self.my_base):
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									self.g.BuildBase(cell[0], cell[1])
-									self.g.Refresh()
 									self.update()
 									break
 		
@@ -400,13 +402,18 @@ class NamabillyAI:
 			if self.my_base:
 				for base in self.my_base:
 					for s in self.surroundings:
+						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
+							b = self.g.GetCell(base[0], base[1])
+							if 1 < b.takeTime < 3.5:
+								print(self.g.AttackCell(base[0], base[1]))
+								self.update()
+								break
 						c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
 						if c != None:
 							if c.owner != self.g.uid:
 								if not self.status['isTaking'] and not c.isTaking:
-									if self.get_take_time(c) <= 5:
+									if self.get_take_time(c) <= 8:
 										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
-										self.g.Refresh()
 										self.update()
 										break
 							else:
@@ -415,7 +422,6 @@ class NamabillyAI:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
 												print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
-												self.g.Refresh()
 												self.update()
 												break
 			
@@ -430,7 +436,6 @@ class NamabillyAI:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
 							if 1 < c.takeTime <= 3.5:
 								print(self.g.AttackCell(cell[0], cell[1]))
-								self.g.Refresh()
 								self.update()
 								break
 			
@@ -542,7 +547,7 @@ class NamabillyAI:
 			self.path.append(v)
 			v = v.preBest
 			
-	# whther boost or not
+	# whether boost or not
 	def boost(self, cell):
 		take_time = self.get_take_time(cell)
 		if self.status['energy'] > 15:
@@ -570,6 +575,26 @@ class NamabillyAI:
 				return False
 		else:
 			return False
+	
+	# when, where and how to blast
+	def blast(self):
+		blast_mode = -1
+		return
+		
+	# when, where to multiattack
+	def multiattack(self):
+		cellCount = []
+		for cell in self.neighbor_cell:
+			for p in self.multi:
+				if (cell[0]+p[0], cell[1]+p[1]) in self.neighbor_cell:
+					cellCount[cell[0]+cell[1]*self.width] += 1
+		return
+		
+	def multisort(self, c):
+		cell = self.g.GetCell(c[0], c[1])
+		
+		return
+	
 		
 						
 class Vertex:
