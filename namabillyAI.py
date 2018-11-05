@@ -100,10 +100,11 @@ class NamabillyAI:
 				if not self.status['isTaking']:
 					self.get_target()
 					self.move()
-					cell = self.target[0]
-					c = self.g.GetCell(cell[0], cell[1])
-					print(str(cell[0])+" "+str(cell[1]))
-					print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
+					if self.target:
+						cell = self.target[0]
+						c = self.g.GetCell(cell[0], cell[1])
+						print(str(cell[0])+" "+str(cell[1]))
+						print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
 		else:
 			print("Failed to join game!")
 	
@@ -325,11 +326,44 @@ class NamabillyAI:
 					cell = self.on_enemy_base[0]
 					if cell in self.neighbor_cell:
 						self.on_enemy_base_round = []
+						baseRoundCount = 0
 						for d in self.directions:
 							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
 							if c != None:
 								if c.owner == self.on_enemy:
 									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+									baseRoundCount += 1
+						if baseRoundCount <= 1:
+							if self.on_enemy_base_round:
+								if self.status['energy'] >= 40:
+									round = self.on_enemy_base_round[0]
+									diff = (cell[0]-round[0], cell[1]-round[1])
+									type = "vertical" if diff[0] == 0 else "horizontal"
+									atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
+									if atkP == None:
+										atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+										type = "square"
+										if atkP == None:
+											atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+											type = "square"
+										elif atkP.owner != self.g.uid:
+											atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+											type = "square"
+									elif atkP.owner != self.g.uid:
+										atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+										if atkP == None:
+											atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+											type = "square"
+											if atkP == None:
+												atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+												type = "square"
+											elif atkP.owner != self.g.uid:
+												atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+												type = "square"
+									print(self.g.Blast(atkP.x, atkP.y, type))
+									self.on_enemy_base = []
+									self.on_enemy_base_round = []
+									self.update()
 						if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
 							self.getBaseRound = True
 						else:
@@ -427,14 +461,16 @@ class NamabillyAI:
 								if cell not in self.border_cell and cell not in self.my_base\
 								and cell not in self.get_neighbors(self.my_base):
 									if not self.g.GetCell(cell[0], cell[1]).isTaking:
-										self.g.BuildBase(cell[0], cell[1])
+										print(self.g.BuildBase(cell[0], cell[1]))
+										self.update()
+										break
 					elif self.status['cellNum'] > 50:
 						random.shuffle(self.my_cell)
 						for cell in self.my_cell:
 							if cell not in self.border_cell and cell not in self.my_base\
 							and cell not in self.get_neighbors(self.my_base):
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
-									self.g.BuildBase(cell[0], cell[1])
+									print(self.g.BuildBase(cell[0], cell[1]))
 									self.update()
 									break
 		
@@ -450,7 +486,9 @@ class NamabillyAI:
 								if c.owner != self.g.uid and c.owner != 0:
 									count += 1
 						if count >= 4:
-							self.g.Blast(base[0], base[1], "square")
+							if self.status['energy'] > 40:
+								print(self.g.Blast(base[0], base[1], "square"))
+								self.update()
 					for s in self.surroundings:
 						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
 							b = self.g.GetCell(base[0], base[1])
