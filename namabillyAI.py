@@ -67,6 +67,18 @@ class NamabillyAI:
 		self.gr = []
 		self.path = []
 		
+		# skill content
+		
+		# blast
+		self.blast_mode = 0
+		# 0: square
+		# 1: horizontal
+		# 2: vertical
+		self.neighbor_count = [[0]*3 for c in range(self.g.width*self.g.height)]
+		
+		# multiattack
+		self.cell_count = [0]*(self.g.width*self.g.height)
+		
 	def run(self):
 		if self.isJoined:
 			# get energy/gold cells
@@ -89,8 +101,9 @@ class NamabillyAI:
 					self.get_target()
 					self.move()
 					cell = self.target[0]
+					c = self.g.GetCell(cell[0], cell[1])
 					print(str(cell[0])+" "+str(cell[1]))
-					print(self.g.AttackCell(cell[0], cell[1]))
+					print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
 		else:
 			print("Failed to join game!")
 	
@@ -147,6 +160,33 @@ class NamabillyAI:
 					if self.g.GetCell(x, y).isTaking:
 						if (x+d[0], y+d[1]) in self.my_cell and (x+d[0], y+d[1]) not in self.border_cell:
 							self.border_cell.append((x+d[0], y+d[1]))
+		
+		# update blast info
+		self.neighbor_count = [[0]*3 for c in range(self.g.width*self.g.height)]
+		for cell in self.my_cell:
+			for s in self.surroundings:
+				cc = self.g.GetCell(cell[0]+s[0], cell[1]+s[1])
+				if cc != None:
+					if cc.owner != self.g.uid and cc.owner != 0:
+						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][0] += 1
+			for h in self.horizontal:
+				cc = self.g.GetCell(cell[0]+h[0], cell[1]+h[1])
+				if cc != None:
+					if cc.owner != self.g.uid and cc.owner != 0:
+						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][1] += 1
+			for v in self.vertical:
+				cc = self.g.GetCell(cell[0]+v[0], cell[1]+v[1])
+				if cc != None:
+					if cc.owner != self.g.uid and cc.owner != 0:
+						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][2] += 1
+		
+		# update multi info
+		# for x in range(self.g.width):
+			# for y in range(self.g.height):
+				# self.cell_count[x+y*self.g.height] = 0
+				# for d in self.directions:
+					# if (x+d[0], y+d[1]) in self.neighbor_cell:
+						# self.cell_count[x+y*self.g.height] += 1
 		
 		# update status
 		diff = self.g.energy - self.status['energy']
@@ -304,26 +344,27 @@ class NamabillyAI:
 				ver = self.path.pop()
 			if ver:
 				self.target.append((ver.x, ver.y))
+				if ver.val >= 8 and not self.boost(self.g.GetCell(ver.x, ver.y)):
+					# change target
+					if self.neighbor_enemy:
+						random.shuffle(self.neighbor_enemy)
+						for enemy in self.neighbor_enemy:
+							if enemy != self.on_enemy:
+								self.on_enemy = enemy
+								self.on_enemy_base = []
+								for base in self.enemy_base:
+									bc = self.g.GetCell(base[0], base[1])
+									if bc.owner == self.on_enemy:
+										self.on_enemy_base.append((base[0], base[1]))
+								break
+					self.update()
+					self.status['mode'] = 3
+					self.get_target()
 			else:
 				self.update()
 				if self.status['isTaking']:
 					self.get_target()
-			if ver.val >= 8:
-				# change target
-				if self.neighbor_enemy:
-					random.shuffle(self.neighbor_enemy)
-					for enemy in self.neighbor_enemy:
-						if enemy != self.on_enemy:
-							self.on_enemy = enemy
-							self.on_enemy_base = []
-							for base in self.enemy_base:
-								bc = self.g.GetCell(base[0], base[1])
-								if bc.owner == self.on_enemy:
-									self.on_enemy_base.append((base[0], base[1]))
-							break
-				self.update()
-				self.status['mode'] = 3
-				self.get_target()
+			
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
@@ -401,11 +442,20 @@ class NamabillyAI:
 		if self.BASE_ENABLED:
 			if self.my_base:
 				for base in self.my_base:
+					if self.BLAST_ENABLED:
+						count = 0
+						for s in self.surroundings:
+							c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
+							if c!= None:
+								if c.owner != self.g.uid and c.owner != 0:
+									count += 1
+						if count >= 4:
+							self.g.Blast(base[0], base[1], "square")
 					for s in self.surroundings:
 						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
 							b = self.g.GetCell(base[0], base[1])
 							if 1 < b.takeTime < 3.5:
-								print(self.g.AttackCell(base[0], base[1]))
+								print(self.g.AttackCell(base[0], base[1], self.boost(b)))
 								self.update()
 								break
 						c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
@@ -413,7 +463,7 @@ class NamabillyAI:
 							if c.owner != self.g.uid:
 								if not self.status['isTaking'] and not c.isTaking:
 									if self.get_take_time(c) <= 8:
-										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1], self.boost(c)))
 										self.update()
 										break
 							else:
@@ -539,6 +589,10 @@ class NamabillyAI:
 			if self.on_enemy == 0 or not self.on_enemy_base:
 				b = self.g.GetCell(v.x, v.y)
 				self.on_enemy = b.owner
+				self.on_enemy_base = []
+				self.on_enemy_base.append((v.x, v.y))
+				self.update()
+				self.get_target()
 			self.on_enemy_base = []
 			self.on_enemy_base.append((v.x, v.y))
 		
@@ -578,20 +632,24 @@ class NamabillyAI:
 	
 	# when, where and how to blast
 	def blast(self):
-		blast_mode = -1
+		self.blast_mode = -1
+		
+		
+		
+		# regular blast
+		
+		
+		
+		
 		return
 		
 	# when, where to multiattack
 	def multiattack(self):
-		cellCount = []
-		for cell in self.neighbor_cell:
-			for p in self.multi:
-				if (cell[0]+p[0], cell[1]+p[1]) in self.neighbor_cell:
-					cellCount[cell[0]+cell[1]*self.width] += 1
+		
 		return
 		
-	def multisort(self, c):
-		cell = self.g.GetCell(c[0], c[1])
+	def multisort(self):
+		
 		
 		return
 	
