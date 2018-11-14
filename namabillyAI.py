@@ -32,6 +32,8 @@ class NamabillyAI:
 	BASE_ENABLED = True
 	BLAST_ENABLED = True
 	MULTIATTACK_ENABLED = True
+	GOLD_FAC = 11
+	ENERGY_FAC = 3
 	
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -42,6 +44,8 @@ class NamabillyAI:
 		self.my_base = []
 		self.energy_cell = [] # 18
 		self.gold_cell = [] # 18
+		self.my_energy = []
+		self.my_gold = []
 		self.enemy_base = []
 		self.neighbor_enemy = []
 		self.on_enemy = 0
@@ -77,7 +81,7 @@ class NamabillyAI:
 		self.neighbor_count = [[0]*3 for c in range(self.g.width*self.g.height)]
 		
 		# multiattack
-		self.cell_count = [0]*(self.g.width*self.g.height)
+		self.multi_points = []
 		
 	def run(self):
 		if self.isJoined:
@@ -136,11 +140,17 @@ class NamabillyAI:
 				self.on_enemy_base = []
 				# better not change on_enemy 'cause you want to stick on 1 target
 		
-		# update my bases
+		# update my bases, energys, and golds
+		self.my_base = []
+		self.my_energy = []
 		self.my_base = []
 		for cell in self.my_cell:
 			if self.g.GetCell(cell[0], cell[1]).isBase:
 				self.my_base.append(cell)
+			if cell in self.energy_cell:
+				self.my_energy.append(cell)
+			elif cell in self.gold_cell:
+				self.my_gold.append(cell)
 		
 		# update neighbors & borders & enemy type
 		self.neighbor_cell = []
@@ -182,12 +192,12 @@ class NamabillyAI:
 						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][2] += 1
 		
 		# update multi info
-		# for x in range(self.g.width):
-			# for y in range(self.g.height):
-				# self.cell_count[x+y*self.g.height] = 0
-				# for d in self.directions:
-					# if (x+d[0], y+d[1]) in self.neighbor_cell:
-						# self.cell_count[x+y*self.g.height] += 1
+		self.multi_points = []
+		for cell in self.neighbor_cell:
+			for d in self.directions:
+				if 0 <= cell[0]+d[0] < self.g.height and 0 <= cell[1]+d[1] < self.g.width:
+					self.multi_points.append(cell)
+		self.multi_points.sort(key = self.get_multi_val, reverse = True)
 		
 		# update status
 		diff = self.g.energy - self.status['energy']
@@ -222,7 +232,7 @@ class NamabillyAI:
 		# update mode
 		if self.status['isDangerous']:
 			self.status['mode'] = 5
-		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 3:
+		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 5:
 			self.status['mode'] = 0
 		elif self.g.goldCellNum < 1:
 			self.status['mode'] = 1
@@ -246,7 +256,7 @@ class NamabillyAI:
 		neighbors = []
 		for cell in cells:
 			for d in self.directions:
-				if 0 <= cell[0]+d[0] < self.g.width and 0 <= cell[1]+d[1] < self.g.height:
+				if 0 <= cell[0]+d[0] < self.g.height and 0 <= cell[1]+d[1] < self.g.width:
 					if (cell[0]+d[0], cell[1]+d[1]) not in neighbors:
 						neighbors.append((cell[0]+d[0], cell[1]+d[1]))
 		return neighbors
@@ -289,6 +299,15 @@ class NamabillyAI:
 			neighborCell.sort(key = self.get_val_corner, reverse = True)
 			for cell in neighborCell:
 				if not cell.isTaking:
+					if self.MULTIATTACK_ENABLED:
+						if self.BASE_ENABLED and self.status['baseNum'] == 3:
+							if self.status['gold'] >= 40:
+								val = self.get_val(cell)
+								point = self.multi_points[0]
+								if val < self.get_multi_val(point):
+									print(self.g.MultiAttack(point[0], point[1]))
+									self.update()
+									break
 					self.target.append((cell.x, cell.y))
 					break
 			else:
@@ -313,6 +332,15 @@ class NamabillyAI:
 								isSafe = False
 								break
 					if isSafe:
+						if self.MULTIATTACK_ENABLED:
+							if self.BASE_ENABLED and self.status['baseNum'] == 3:
+								if self.status['gold'] >= 40:
+									val = self.get_val(cell)
+									point = self.multi_points[0]
+									if val < self.get_multi_val(point):
+										print(self.g.MultiAttack(point[0], point[1]))
+										self.update()
+										break
 						self.target.append((cell.x, cell.y))
 						break
 			else:
@@ -397,8 +425,7 @@ class NamabillyAI:
 			else:
 				self.update()
 				if self.status['isTaking']:
-					self.get_target()
-			
+					self.get_target()	
 		# mode 5 - defend
 		# not too much of a concern now
 		elif self.modes[self.status['mode']] == "defend":
@@ -406,26 +433,20 @@ class NamabillyAI:
 			self.get_target()
 		else:
 			print("Error: mode not defined.")
-			
+		
 	def get_val(self, cell):
 		take_time = cell.takeTime
 		if take_time < 0:
 			return 0
-		neighborNum = 0
 		type = cell.cellType
 		val = 1
 		if type == 'gold':
-			val = 10
+			val = self.GOLD_FAC
 		elif type == 'energy':
-			val = 3
+			val = self.ENERGY_FAC
 		else:
 			val = 1
-		for d in self.directions:
-			c = self.g.GetCell(cell.x+d[0], cell.y+d[1])
-			if c != None:
-				if c.owner == self.g.uid:
-					neighborNum += 1
-		return val / ((take_time * min(1, 1 - 0.25*(neighborNum - 1))) / (1 + self.status['energy']/200.0))
+		return val / self.get_take_time(cell)
 		
 	def map_corner(self, cell):
 		x = cell.x
@@ -448,7 +469,29 @@ class NamabillyAI:
 				if c.owner == self.g.uid:
 					neighborNum += 1
 		return take_time * min(1, 1 - 0.25*(neighborNum - 1)) / (1 + self.status['energy']/200.0)
-		
+	
+	def get_multi_val(self, point):
+		count = 0
+		time = 0
+		for d in self.directions:
+			cell = self.g.GetCell(point[0]+d[0], point[1]+d[1])
+			fac = 1
+			if cell != None:
+				if (cell.x, cell.y) in self.neighbor_cell or (cell.x, cell.y) in self.my_cell:
+					if cell.cellType == 'gold':
+						fac = self.GOLD_FAC
+					elif cell.cellType == 'energy':
+						fac = self.ENERGY_FAC
+					if cell.owner == self.g.uid:
+						fac *= 1/4
+					count += fac
+					t = self.get_take_time(cell)
+					if t > time:
+						time = t
+		if count <= 1:
+			return -1
+		return count / time
+	
 	def move(self):
 		# build base - 60g, 30s
 		if self.BASE_ENABLED:
@@ -512,7 +555,22 @@ class NamabillyAI:
 												print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
 												self.update()
 												break
-			
+		
+		# resource blast
+		if self.BLAST_ENABLED:
+			if self.my_energy:
+				for energy in self.my_energy:
+					count = 0
+					for s in self.surroundings:
+						c = self.g.GetCell(energy[0]+s[0], energy[1]+s[1])
+						if c!= None:
+							if c.owner != self.g.uid and c.owner != 0:
+								count += 1
+					if count >= 4:
+						if self.status['energy'] > 40:
+							print(self.g.Blast(energy[0], energy[1], "square"))
+							self.update()
+		
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
 		and len(self.border_cell) < 40:
@@ -671,8 +729,6 @@ class NamabillyAI:
 	# when, where and how to blast
 	def blast(self):
 		self.blast_mode = -1
-		
-		
 		
 		# regular blast
 		
