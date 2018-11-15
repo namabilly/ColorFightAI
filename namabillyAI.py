@@ -32,8 +32,8 @@ class NamabillyAI:
 	BASE_ENABLED = True
 	BLAST_ENABLED = True
 	MULTIATTACK_ENABLED = True
-	GOLD_FAC = 11
-	ENERGY_FAC = 3
+	GOLD_FAC = 12
+	ENERGY_FAC = 4
 	
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -257,8 +257,12 @@ class NamabillyAI:
 			self.status['mode'] = 3
 		elif self.neighbor_enemy:
 			self.status['mode'] = 4
+		elif self.g.energyCellNum < 18:
+			self.status['mode'] = 0
+		elif self.g.goldCellNum < 18:
+			self.status['mode'] = 1
 		else:
-			self.status['mode'] = 2
+			self.status['mode'] = 3
 		
 		# test
 		# self.status['mode'] = 0
