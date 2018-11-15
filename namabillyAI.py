@@ -74,11 +74,7 @@ class NamabillyAI:
 		# skill content
 		
 		# blast
-		self.blast_mode = 0
-		# 0: square
-		# 1: horizontal
-		# 2: vertical
-		self.neighbor_count = [[0]*3 for c in range(self.g.width*self.g.height)]
+		self.blast_points = []
 		
 		# multiattack
 		self.multi_points = []
@@ -102,6 +98,21 @@ class NamabillyAI:
 				self.update()
 				print(self.status)
 				if not self.status['isTaking']:
+					if self.BLAST_ENABLED:
+						point = self.blast_points[0]
+						val, type = self.get_blast_info(point)
+						if self.status['energy'] >= 80:
+							if val >= 4:
+								print(self.g.Blast(point[0], point[1], type))
+								self.update()
+						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 3:
+							if val >= 5:
+								print(self.g.Blast(point[0], point[1], type))
+								self.update()
+						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 5:
+							if val >= 6:
+								print(self.g.Blast(point[0], point[1], type))
+								self.update()
 					self.get_target()
 					self.move()
 					if self.target:
@@ -188,23 +199,10 @@ class NamabillyAI:
 							self.border_cell.append((x+d[0], y+d[1]))
 		
 		# update blast info
-		self.neighbor_count = [[0]*3 for c in range(self.g.width*self.g.height)]
-		for cell in self.my_cell:
-			for s in self.surroundings:
-				cc = self.g.GetCell(cell[0]+s[0], cell[1]+s[1])
-				if cc != None:
-					if cc.owner != self.g.uid and cc.owner != 0:
-						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][0] += 1
-			for h in self.horizontal:
-				cc = self.g.GetCell(cell[0]+h[0], cell[1]+h[1])
-				if cc != None:
-					if cc.owner != self.g.uid and cc.owner != 0:
-						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][1] += 1
-			for v in self.vertical:
-				cc = self.g.GetCell(cell[0]+v[0], cell[1]+v[1])
-				if cc != None:
-					if cc.owner != self.g.uid and cc.owner != 0:
-						self.neighbor_count[cell[0]+s[0]+cell[1]+s[1]*self.g.height][2] += 1
+		self.blast_points = []
+		for cell in self.border_cell:
+			self.blast_points.append(cell)
+		self.blast_points.sort(key = self.get_blast_val, reverse = True)
 		
 		# update multi info
 		self.multi_points = []
@@ -274,6 +272,7 @@ class NamabillyAI:
 		# get target
 		# self.get_target()
 	
+	# get neighbors of cells
 	def get_neighbors(self, cells):
 		neighbors = []
 		for cell in cells:
@@ -282,7 +281,7 @@ class NamabillyAI:
 					if (cell[0]+d[0], cell[1]+d[1]) not in neighbors:
 						neighbors.append((cell[0]+d[0], cell[1]+d[1]))
 		return neighbors
-	
+	# push the next target to the stack, according to the mode
 	def get_target(self):
 		self.target = []
 		# mode 0 - energy
@@ -457,7 +456,7 @@ class NamabillyAI:
 			self.get_target()
 		else:
 			print("Error: mode not defined.")
-		
+	# get the value of cell
 	def get_val(self, cell):
 		take_time = cell.takeTime
 		if take_time < 0:
@@ -471,17 +470,17 @@ class NamabillyAI:
 		else:
 			val = 1
 		return val / self.get_take_time(cell)
-		
+	# map the value in favor of corners
 	def map_corner(self, cell):
 		x = cell.x
 		y = cell.y
 		valX = abs(x - (self.g.width-1)/2)
 		valY = abs(y - (self.g.height-1)/2)
 		return (valX / (self.g.width/2))**2 + (valY / (self.g.height/2))**2
-	
+	# get the value of cell in favor of corners
 	def get_val_corner(self, cell):
 		return self.map_corner(cell) * self.get_val(cell)
-	
+	# get the take time of cell
 	def get_take_time(self, cell):
 		take_time = cell.takeTime
 		if take_time < 0:
@@ -493,7 +492,60 @@ class NamabillyAI:
 				if c.owner == self.g.uid:
 					neighborNum += 1
 		return take_time * min(1, 1 - 0.25*(neighborNum - 1)) / (1 + self.status['energy']/200.0)
-	
+	# get the info of best blast attack on point
+	def get_blast_info(self, point):
+		count = 0
+		type = "square"
+		count_square = 0
+		count_horizontal = 0
+		count_vertical = 0
+		for s in self.surroundings:
+			c = self.g.GetCell(point[0]+s[0], point[1]+s[1])
+			if c != None:
+				if c.owner != self.g.uid and c.owner != 0:
+					count_square += 1
+					count_square += self.get_take_time(c) / 100
+					if c.cellType == 'gold' or c.cellType == 'energy':
+						count_square += 1
+					if c.isBuilding:
+						count_square += 5
+		for h in self.horizontal:
+			c = self.g.GetCell(point[0]+h[0], point[1]+h[1])
+			if c != None:
+				if c.owner != self.g.uid and c.owner != 0:
+					count_horizontal += 1
+					count_horizontal += self.get_take_time(c) / 100
+					if c.cellType == 'gold' or c.cellType == 'energy':
+						count_horizontal += 1
+					if c.isBuilding:
+						count_horizontal += 5
+		for v in self.vertical:
+			c = self.g.GetCell(point[0]+v[0], point[1]+v[1])
+			if c != None:
+				if c.owner != self.g.uid and c.owner != 0:
+					count_vertical += 1
+					count_vertical += self.get_take_time(c) / 100
+					if c.cellType == 'gold' or c.cellType == 'energy':
+						count_vertical += 1
+					if c.isBuilding:
+						count_vertical += 5
+		if count_square > count:
+			count = count_square
+			type = "square"
+		if count_horizontal > count:
+			count = count_horizontal
+			type = "horizontal"
+		if count_vertical > count:
+			count = count_vertical
+			type = "vertical"
+		return count, type
+	# get the value of blast attack on point
+	def get_blast_val(self, point):
+		return self.get_blast_info(point)[0]
+	# get the type of blast attack on point
+	def get_blast_type(self, point):
+		return self.get_blast_info(point)[1]
+	# get the value of multiattack on point
 	def get_multi_val(self, point):
 		count = 0
 		time = 0
@@ -515,7 +567,7 @@ class NamabillyAI:
 		if count <= 1:
 			return -1
 		return count / time
-	
+		
 	def move(self):
 		# build base - 60g, 30s
 		if self.BASE_ENABLED:
@@ -613,8 +665,8 @@ class NamabillyAI:
 								# print(self.g.AttackCell(cell[0], cell[1]))
 								self.target = []
 								self.target.append(cell)
-								return			
-
+								return
+								
 	def init_graph(self):
 		self.graph = []
 		self.gr = [[Vertex(0, 0, 0) for i in range(self.g.width)] for j in range(self.g.height)]
