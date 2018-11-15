@@ -303,7 +303,7 @@ class NamabillyAI:
 					self.get_target()
 		# mode 2 - fast
 		# greedy expand
-		# assign value to neighbor cells, choose the highest one, i.e. shorter time and better benefit
+		# assign value to neighbor cells, choose the highest one, i.e. shorter time and greater benefit
 		elif self.modes[self.status['mode']] == "fast":
 			neighborCell = []
 			for cell in self.neighbor_cell:
@@ -363,34 +363,23 @@ class NamabillyAI:
 			# attack base - basic
 			if self.on_enemy != 0:
 				if self.on_enemy_base:
-					cell = self.on_enemy_base[0]
-					if cell in self.neighbor_cell:
-						self.on_enemy_base_round = []
-						baseRoundCount = 0
-						for d in self.directions:
-							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
-							if c != None:
-								if c.owner == self.on_enemy:
-									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
-									baseRoundCount += 1
-						if baseRoundCount <= 1:
-							if self.on_enemy_base_round:
-								if self.status['energy'] >= 40:
-									round = self.on_enemy_base_round[0]
-									diff = (cell[0]-round[0], cell[1]-round[1])
-									type = "vertical" if diff[0] == 0 else "horizontal"
-									atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
-									if atkP == None:
-										atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-										type = "square"
-										if atkP == None:
-											atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-											type = "square"
-										elif atkP.owner != self.g.uid:
-											atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-											type = "square"
-									elif atkP.owner != self.g.uid:
-										atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+					for cell in self.on_enemy_base:
+						if cell in self.neighbor_cell:
+							self.on_enemy_base_round = []
+							baseRoundCount = 0
+							for d in self.directions:
+								c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+								if c != None:
+									if c.owner == self.on_enemy:
+										self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+										baseRoundCount += 1
+							if baseRoundCount <= 1:
+								if self.on_enemy_base_round:
+									if self.status['energy'] >= 40:
+										round = self.on_enemy_base_round[0]
+										diff = (cell[0]-round[0], cell[1]-round[1])
+										type = "vertical" if diff[0] == 0 else "horizontal"
+										atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
 										if atkP == None:
 											atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
 											type = "square"
@@ -400,14 +389,26 @@ class NamabillyAI:
 											elif atkP.owner != self.g.uid:
 												atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
 												type = "square"
-									print(self.g.Blast(atkP.x, atkP.y, type))
-									self.on_enemy_base = []
-									self.on_enemy_base_round = []
-									self.update()
-						if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
-							self.getBaseRound = True
-						else:
-							self.getBaseRound = False
+										elif atkP.owner != self.g.uid:
+											atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+											if atkP == None:
+												atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+												type = "square"
+												if atkP == None:
+													atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+													type = "square"
+												elif atkP.owner != self.g.uid:
+													atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+													type = "square"
+										print(self.g.Blast(atkP.x, atkP.y, type))
+										self.on_enemy_base = []
+										self.on_enemy_base_round = []
+										self.update()
+							if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
+								self.getBaseRound = True
+							else:
+								self.getBaseRound = False
+							break
 			print(len(self.on_enemy_base_round))
 			if not self.getBaseRound:
 				self.dijkstra('base')
