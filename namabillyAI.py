@@ -37,7 +37,7 @@ class NamabillyAI:
 	
 	def __init__(self):
 		self.g = colorfight.Game()
-		self.isJoined = self.g.JoinGame('namabilly2')
+		self.isJoined = self.g.JoinGame('namabilly')
 		self.my_cell = []
 		self.neighbor_cell = []
 		self.border_cell = []
@@ -110,12 +110,17 @@ class NamabillyAI:
 						if self.MULTIATTACK_ENABLED:
 							if self.status['baseNum'] == 3 and self.status['gold'] >= 40:
 								val = self.get_val(c)
+								point = (0, 0)
 								for d in self.directions:
-									point = (cell[0]+d[0], cell[1]+d[1])
-									if self.get_multi_val(point) > val:
-										print(self.g.MultiAttack(point[0], point[1]))
-										self.update()
-										break
+									p = (cell[0]+d[0], cell[1]+d[1])
+									mulV = self.get_multi_val(p)
+									if mulV > val:
+										val = mulV
+										point = p
+								if val > self.get_val(c):
+									print(self.g.MultiAttack(point[0], point[1]))
+									self.update()
+									continue
 						print(str(cell[0])+" "+str(cell[1]))
 						print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
 		else:
@@ -496,7 +501,7 @@ class NamabillyAI:
 					elif cell.cellType == 'energy':
 						fac = self.ENERGY_FAC
 					if cell.owner == self.g.uid:
-						fac *= 1/4
+						fac *= 1/8
 					count += fac
 					t = self.get_take_time(cell)
 					if t > time:
@@ -519,7 +524,7 @@ class NamabillyAI:
 									if not self.g.GetCell(cell[0], cell[1]).isTaking:
 										print(self.g.BuildBase(cell[0], cell[1]))
 										self.update()
-										break
+										return
 					elif self.status['cellNum'] > 50:
 						random.shuffle(self.my_cell)
 						for cell in self.my_cell:
@@ -528,7 +533,7 @@ class NamabillyAI:
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									print(self.g.BuildBase(cell[0], cell[1]))
 									self.update()
-									break
+									return
 		
 		# reinforce base
 		if self.BASE_ENABLED:
@@ -545,29 +550,33 @@ class NamabillyAI:
 							if self.status['energy'] > 40:
 								print(self.g.Blast(base[0], base[1], "square"))
 								self.update()
+								return
 					for s in self.surroundings:
 						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
 							b = self.g.GetCell(base[0], base[1])
 							if 1 < b.takeTime < 3.5:
-								print(self.g.AttackCell(base[0], base[1], self.boost(b)))
-								self.update()
-								break
+								# print(self.g.AttackCell(base[0], base[1], self.boost(b)))
+								self.target = []
+								self.target.append(base)
+								return
 						c = self.g.GetCell(base[0]+s[0], base[1]+s[1])
 						if c != None:
 							if c.owner != self.g.uid:
 								if not self.status['isTaking'] and not c.isTaking:
 									if self.get_take_time(c) <= 8:
-										print(self.g.AttackCell(base[0]+s[0], base[1]+s[1], self.boost(c)))
-										self.update()
-										break
+										# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1], self.boost(c)))
+										self.target = []
+										self.target.append((base[0]+s[0], base[1]+s[1]))
+										return
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
 									if 1 < c.takeTime <= 3.5:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
-												print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
-												self.update()
-												break
+												# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
+												self.target = []
+												self.target.append((base[0]+s[0], base[1]+s[1]))
+												return
 		
 		# resource blast
 		if self.BLAST_ENABLED:
@@ -583,6 +592,7 @@ class NamabillyAI:
 						if self.status['energy'] > 40:
 							print(self.g.Blast(energy[0], energy[1], "square"))
 							self.update()
+							return
 		
 		# reinforce border
 		if self.status['mode'] != 0 and self.status['mode'] != 1 and self.status['mode'] != 4\
@@ -594,11 +604,10 @@ class NamabillyAI:
 					if cc != None:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
 							if 1 < c.takeTime <= 3.5:
-								print(self.g.AttackCell(cell[0], cell[1]))
-								self.update()
-								break
-			
-		return
+								# print(self.g.AttackCell(cell[0], cell[1]))
+								self.target = []
+								self.target.append(cell)
+								return			
 
 	def init_graph(self):
 		self.graph = []
