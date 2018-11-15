@@ -211,7 +211,8 @@ class NamabillyAI:
 		for cell in self.neighbor_cell:
 			for d in self.directions:
 				if 0 <= cell[0]+d[0] < self.g.height and 0 <= cell[1]+d[1] < self.g.width:
-					self.multi_points.append(cell)
+					if (cell[0]+d[0], cell[1]+d[1]) not in self.multi_points:
+						self.multi_points.append((cell[0]+d[0], cell[1]+d[1]))
 		self.multi_points.sort(key = self.get_multi_val, reverse = True)
 		
 		# update status
@@ -382,24 +383,14 @@ class NamabillyAI:
 									if c.owner == self.on_enemy:
 										self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
 										baseRoundCount += 1
-							if baseRoundCount <= 1:
-								if self.on_enemy_base_round:
-									if self.status['energy'] >= 40:
-										round = self.on_enemy_base_round[0]
-										diff = (cell[0]-round[0], cell[1]-round[1])
-										type = "vertical" if diff[0] == 0 else "horizontal"
-										atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
-										if atkP == None:
-											atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-											type = "square"
-											if atkP == None:
-												atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-												type = "square"
-											elif atkP.owner != self.g.uid:
-												atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-												type = "square"
-										elif atkP.owner != self.g.uid:
-											atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+							if self.BLAST_ENABLED:
+								if baseRoundCount <= 1:
+									if self.on_enemy_base_round:
+										if self.status['energy'] >= 40:
+											round = self.on_enemy_base_round[0]
+											diff = (cell[0]-round[0], cell[1]-round[1])
+											type = "vertical" if diff[0] == 0 else "horizontal"
+											atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
 											if atkP == None:
 												atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
 												type = "square"
@@ -409,10 +400,21 @@ class NamabillyAI:
 												elif atkP.owner != self.g.uid:
 													atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
 													type = "square"
-										print(self.g.Blast(atkP.x, atkP.y, type))
-										self.on_enemy_base = []
-										self.on_enemy_base_round = []
-										self.update()
+											elif atkP.owner != self.g.uid:
+												atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+												if atkP == None:
+													atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+													type = "square"
+													if atkP == None:
+														atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+														type = "square"
+													elif atkP.owner != self.g.uid:
+														atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+														type = "square"
+											print(self.g.Blast(atkP.x, atkP.y, type))
+											self.on_enemy_base = []
+											self.on_enemy_base_round = []
+											self.update()
 							if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
 								self.getBaseRound = True
 							else:
