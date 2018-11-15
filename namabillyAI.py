@@ -37,7 +37,7 @@ class NamabillyAI:
 	
 	def __init__(self):
 		self.g = colorfight.Game()
-		self.isJoined = self.g.JoinGame('namabilly')
+		self.isJoined = self.g.JoinGame('namabilly2')
 		self.my_cell = []
 		self.neighbor_cell = []
 		self.border_cell = []
@@ -107,6 +107,15 @@ class NamabillyAI:
 					if self.target:
 						cell = self.target[0]
 						c = self.g.GetCell(cell[0], cell[1])
+						if self.MULTIATTACK_ENABLED:
+							if self.status['baseNum'] == 3 and self.status['gold'] >= 40:
+								val = self.get_val(c)
+								for d in self.directions:
+									point = (cell[0]+d[0], cell[1]+d[1])
+									if self.get_multi_val(point) > val:
+										print(self.g.MultiAttack(point[0], point[1]))
+										self.update()
+										break
 						print(str(cell[0])+" "+str(cell[1]))
 						print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
 		else:
@@ -133,12 +142,13 @@ class NamabillyAI:
 		if not self.on_enemy_cell:
 			self.on_enemy = 0
 		# update on enemy base IMPORTANT when the target moves by accident
-		if self.on_enemy_base:
-			base = self.on_enemy_base[0]
-			bc = self.g.GetCell(base[0], base[1])
-			if not bc.isBase:
-				self.on_enemy_base = []
-				# better not change on_enemy 'cause you want to stick on 1 target
+		self.on_enemy_base = []
+		if self.on_enemy != 0:
+			for cell in self.enemy_base:
+				if cell in self.on_enemy_cell:
+					self.on_enemy_base.append(cell)
+		else:
+			self.on_enemy_base = self.enemy_base
 		
 		# update my bases, energys, and golds
 		self.my_base = []
@@ -234,7 +244,7 @@ class NamabillyAI:
 			self.status['mode'] = 5
 		elif self.ENERGY_ENABLED and self.status['energyGrowth'] < 0.3 and self.g.energyCellNum < 5:
 			self.status['mode'] = 0
-		elif self.g.goldCellNum < 1:
+		elif self.g.goldCellNum < 3:
 			self.status['mode'] = 1
 		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
@@ -246,7 +256,9 @@ class NamabillyAI:
 			self.status['mode'] = 2
 		
 		# test
+		# self.status['mode'] = 0
 		# self.status['mode'] = 1
+		# self.status['mode'] = 2
 		# self.status['mode'] = 4
 		
 		# get target
@@ -475,7 +487,7 @@ class NamabillyAI:
 		time = 0
 		for d in self.directions:
 			cell = self.g.GetCell(point[0]+d[0], point[1]+d[1])
-			fac = 1
+			fac = 1.0
 			if cell != None:
 				if (cell.x, cell.y) in self.neighbor_cell or (cell.x, cell.y) in self.my_cell:
 					if cell.cellType == 'gold':
@@ -629,7 +641,7 @@ class NamabillyAI:
 		elif tar == 'gold':
 			target = self.gold_cell
 		elif tar == 'base':
-			target = self.enemy_base
+			target = self.on_enemy_base
 		elif tar == 'base_round':
 			target = self.on_enemy_base_round
 			base = self.on_enemy_base[0]
