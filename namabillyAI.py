@@ -507,8 +507,10 @@ class NamabillyAI:
 					count_square += self.get_take_time(c) / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_square += 1
+					if c.isBase:
+						count_square += -3
 					if c.isBuilding:
-						count_square += 5
+						count_square += 10
 		for h in self.horizontal:
 			c = self.g.GetCell(point[0]+h[0], point[1]+h[1])
 			if c != None:
@@ -517,8 +519,10 @@ class NamabillyAI:
 					count_horizontal += self.get_take_time(c) / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_horizontal += 1
+					if c.isBase:
+						count_horizontal += -3
 					if c.isBuilding:
-						count_horizontal += 5
+						count_horizontal += 10
 		for v in self.vertical:
 			c = self.g.GetCell(point[0]+v[0], point[1]+v[1])
 			if c != None:
@@ -527,8 +531,10 @@ class NamabillyAI:
 					count_vertical += self.get_take_time(c) / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_vertical += 1
+					if c.isBase:
+						count_vertical += -3
 					if c.isBuilding:
-						count_vertical += 5
+						count_vertical += 10
 		if count_square > count:
 			count = count_square
 			type = "square"
