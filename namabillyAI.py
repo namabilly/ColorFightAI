@@ -34,7 +34,7 @@ class NamabillyAI:
 	MULTIATTACK_ENABLED = True
 	GOLD_FAC = 12
 	ENERGY_FAC = 4
-	
+	# defination
 	def __init__(self):
 		self.g = colorfight.Game()
 		self.isJoined = self.g.JoinGame('namabilly')
@@ -78,7 +78,7 @@ class NamabillyAI:
 		
 		# multiattack
 		self.multi_points = []
-		
+	# run
 	def run(self):
 		if self.isJoined:
 			# get energy/gold cells
@@ -142,7 +142,7 @@ class NamabillyAI:
 						print(self.g.AttackCell(cell[0], cell[1], self.boost(c)))
 		else:
 			print("Failed to join game!")
-	
+	# update, from the server and local
 	def update(self):
 	
 		# refresh from server
@@ -206,6 +206,7 @@ class NamabillyAI:
 		
 		# update attack info
 		self.getBaseRound = False
+		self.on_enemy_base_round = []
 		if self.on_enemy != 0:
 			if self.on_enemy_base:
 				for cell in self.on_enemy_base:
@@ -288,6 +289,11 @@ class NamabillyAI:
 			self.status['mode'] = 1
 		else:
 			self.status['mode'] = 3
+		if self.status['cellNum'] > 150:
+			if self.g.energyCellNum < 5:
+				self.status['mode'] = 0
+			elif self.g.goldCellNum < 5:
+				self.status['mode'] = 1
 		
 		# test
 		# self.status['mode'] = 0
@@ -395,78 +401,6 @@ class NamabillyAI:
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
-			# # attack base - basic
-			# if self.on_enemy != 0:
-				# if self.on_enemy_base:
-					# for cell in self.on_enemy_base:
-						# if cell in self.neighbor_cell:
-							# self.on_enemy_base_round = []
-							# baseRoundCount = 0
-							# for d in self.directions:
-								# c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
-								# if c != None:
-									# if c.owner == self.on_enemy:
-										# self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
-										# baseRoundCount += 1
-							
-							# # if self.BLAST_ENABLED:
-								# # if baseRoundCount == 2:
-									# # if self.status['energy'] >= 40:
-										# # round1 = self.on_enemy_base_round[0]
-										# # round2 = self.on_enemy_base_round[1]
-										# # diff1 = (cell[0]-round1[0], cell[1]-round1[1])
-										# # diff2 = (round2[0]-cell[0], round2[1]-cell[1])
-										# # if diff1 == diff2:
-											# # type = "vertical" if diff1[0] == 0 else "horizontal"
-											# # atkP = self.g.GetCell(cell[0]+diff1[0]*2, cell[1]+diff1[1]*2)
-											# # if atkP == None or atkP.owner != self.g.uid:
-												# # atkP = self.g.GetCell(cell[0]+diff1[0]*3, cell[1]+diff1[1]*3)
-												# # if atkP == None or atkP.owner != self.g.uid:
-													# # atkP = self.g.GetCell(cell[0]-diff1[0]*2, cell[1]-diff1[1]*2)
-													# # if atkP == None or atkP.owner != self.g.uid:
-														# # atkP = self.g.GetCell(cell[0]-diff1[0]*3, cell[1]-diff1[1]*3)
-											# # if atkP != None and atkP.owner == self.g.uid:
-												# # print(self.g.Blast(atkP.x, atkP.y, type))
-												# # self.on_enemy_base = []
-												# # self.on_enemy_base_round = []
-												# # self.update()
-								# # elif baseRoundCount <= 1:
-									# # if self.on_enemy_base_round:
-										# # if self.status['energy'] >= 40:
-											# # round = self.on_enemy_base_round[0]
-											# # diff = (cell[0]-round[0], cell[1]-round[1])
-											# # type = "vertical" if diff[0] == 0 else "horizontal"
-											# # atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
-											# # if atkP == None:
-												# # atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-												# # type = "square"
-												# # if atkP == None:
-													# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-													# # type = "square"
-												# # elif atkP.owner != self.g.uid:
-													# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-													# # type = "square"
-											# # elif atkP.owner != self.g.uid:
-												# # atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
-												# # if atkP == None:
-													# # atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-													# # type = "square"
-													# # if atkP == None:
-														# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-														# # type = "square"
-													# # elif atkP.owner != self.g.uid:
-														# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-														# # type = "square"
-											# # print(self.g.Blast(atkP.x, atkP.y, type))
-											# # self.on_enemy_base = []
-											# # self.on_enemy_base_round = []
-											# # self.update()
-							
-							# if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
-								# self.getBaseRound = True
-							# else:
-								# self.getBaseRound = False
-							# break
 			if not self.getBaseRound:
 				self.dijkstra('base')
 			else:
@@ -568,9 +502,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area:
 								neighborCount += 1
 						if neighborCount == 4:
-							count_square += 15
+							count_square += 20
 					if c.isBuilding:
-						count_square += 10
+						count_square += 15
 		for h in self.horizontal:
 			c = self.g.GetCell(point[0]+h[0], point[1]+h[1])
 			if c != None:
@@ -593,9 +527,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area:
 								neighborCount += 1
 						if neighborCount == 4:
-							count_horizontal += 15
+							count_horizontal += 20
 					if c.isBuilding:
-						count_horizontal += 10
+						count_horizontal += 15
 		for v in self.vertical:
 			c = self.g.GetCell(point[0]+v[0], point[1]+v[1])
 			if c != None:
@@ -618,9 +552,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area:
 								neighborCount += 1
 						if neighborCount == 4:
-							count_vertical += 15
+							count_vertical += 20
 					if c.isBuilding:
-						count_vertical += 10
+						count_vertical += 15
 		
 		if count_square > count:
 			count = count_square
@@ -660,7 +594,7 @@ class NamabillyAI:
 		if count <= 1:
 			return -1
 		return count / time
-		
+	# move - integrate to get target, defensive
 	def move(self):
 		# build base - 60g, 30s
 		if self.BASE_ENABLED:
@@ -759,7 +693,7 @@ class NamabillyAI:
 								self.target = []
 								self.target.append(cell)
 								return
-								
+	# initialize graph for the board
 	def init_graph(self):
 		self.graph = []
 		self.gr = [[Vertex(0, 0, 0) for i in range(self.g.width)] for j in range(self.g.height)]
@@ -775,7 +709,7 @@ class NamabillyAI:
 				for d in self.directions:
 					if 0 <= x+d[0] < self.g.width and 0 <= y+d[1] < self.g.height:
 						self.gr[x][y].add_successor(self.gr[x+d[0]][y+d[1]])
-		
+	# refresh graph
 	def refresh_graph(self):
 		for x in range(self.g.width):
 			for y in range(self.g.height):
@@ -783,7 +717,7 @@ class NamabillyAI:
 				self.gr[x][y].val = self.get_take_time(c)
 				self.gr[x][y].dist = math.inf
 				self.gr[x][y].preBest = None
-		
+	# shortest path algorithm
 	def dijkstra(self, tar):
 		print()
 		print(tar)
@@ -901,28 +835,6 @@ class NamabillyAI:
 		else:
 			return False
 	
-	# when, where and how to blast
-	def blast(self):
-		self.blast_mode = -1
-		
-		# regular blast
-		
-		
-		
-		
-		return
-		
-	# when, where to multiattack
-	def multiattack(self):
-		
-		return
-		
-	def multisort(self):
-		
-		
-		return
-	
-		
 						
 class Vertex:
 	
