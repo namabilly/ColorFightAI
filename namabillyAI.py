@@ -205,6 +205,7 @@ class NamabillyAI:
 							self.border_cell.append((x+d[0], y+d[1]))
 		
 		# update attack info
+		self.getBaseRound = False
 		if self.on_enemy != 0:
 			if self.on_enemy_base:
 				for cell in self.on_enemy_base:
