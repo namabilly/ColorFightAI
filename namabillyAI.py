@@ -33,7 +33,7 @@ class NamabillyAI:
 	BLAST_ENABLED = True
 	MULTIATTACK_ENABLED = True
 	GOLD_FAC = 12
-	ENERGY_FAC = 4
+	ENERGY_FAC = 20
 	# defination
 	def __init__(self):
 		self.g = colorfight.Game()
@@ -152,8 +152,8 @@ class NamabillyAI:
 		self.my_cell = []
 		self.enemy_base = []
 		self.on_enemy_cell = []
-		for x in range(self.g.height):
-			for y in range(self.g.width):
+		for x in range(self.g.width):
+			for y in range(self.g.height):
 				c = self.g.GetCell(x, y)
 				if c.owner == self.g.uid:
 					self.my_cell.append((x, y))
@@ -290,7 +290,7 @@ class NamabillyAI:
 		else:
 			self.status['mode'] = 3
 		if self.status['cellNum'] > 150:
-			if self.g.energyCellNum < 5:
+			if self.g.energyCellNum < 5 or self.status['energyGrowth'] < 0.8:
 				self.status['mode'] = 0
 			elif self.g.goldCellNum < 5:
 				self.status['mode'] = 1
@@ -309,7 +309,7 @@ class NamabillyAI:
 		neighbors = []
 		for cell in cells:
 			for d in self.directions:
-				if 0 <= cell[0]+d[0] < self.g.height and 0 <= cell[1]+d[1] < self.g.width:
+				if 0 <= cell[0]+d[0] < self.g.width and 0 <= cell[1]+d[1] < self.g.height:
 					if (cell[0]+d[0], cell[1]+d[1]) not in neighbors:
 						neighbors.append((cell[0]+d[0], cell[1]+d[1]))
 		return neighbors
@@ -450,6 +450,9 @@ class NamabillyAI:
 			val = self.ENERGY_FAC
 		else:
 			val = 1
+		for d in self.directions:
+			if (cell.x+d[0], cell.y+d[1]) in self.energy_cell:
+				val += 1
 		return val / self.get_take_time(cell)
 	# map the value in favor of corners
 	def map_corner(self, cell):
@@ -494,12 +497,12 @@ class NamabillyAI:
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
 						for s in self.surroundings:
-							if 0 <= point[0]+s[0] < self.g.height and 0 <= point[1]+s[1] < self.g.width:
+							if 0 <= point[0]+s[0] < self.g.width and 0 <= point[1]+s[1] < self.g.height:
 								area.append((point[0]+s[0], point[1]+s[1]))
 						neighborCount = 0
 						for cell in neighbor:
 							cc = self.g.GetCell(cell[0], cell[1])
-							if cc == None or cc.owner != c.owner or cell in area:
+							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == 4:
 							count_square += 20
@@ -519,12 +522,12 @@ class NamabillyAI:
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
 						for h in self.horizontal:
-							if 0 <= point[0]+h[0] < self.g.height and 0 <= point[1]+h[1] < self.g.width:
+							if 0 <= point[0]+h[0] < self.g.width and 0 <= point[1]+h[1] < self.g.height:
 								area.append((point[0]+h[0], point[1]+h[1]))
 						neighborCount = 0
 						for cell in neighbor:
 							cc = self.g.GetCell(cell[0], cell[1])
-							if cc == None or cc.owner != c.owner or cell in area:
+							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == 4:
 							count_horizontal += 20
@@ -544,18 +547,17 @@ class NamabillyAI:
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
 						for v in self.vertical:
-							if 0 <= point[0]+v[0] < self.g.height and 0 <= point[1]+v[1] < self.g.width:
+							if 0 <= point[0]+v[0] < self.g.width and 0 <= point[1]+v[1] < self.g.height:
 								area.append((point[0]+v[0], point[1]+v[1]))
 						neighborCount = 0
 						for cell in neighbor:
 							cc = self.g.GetCell(cell[0], cell[1])
-							if cc == None or cc.owner != c.owner or cell in area:
+							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == 4:
 							count_vertical += 20
 					if c.isBuilding:
 						count_vertical += 15
-		
 		if count_square > count:
 			count = count_square
 			type = "square"
@@ -585,6 +587,9 @@ class NamabillyAI:
 						fac = self.GOLD_FAC
 					elif cell.cellType == 'energy':
 						fac = self.ENERGY_FAC
+					for d in self.directions:
+						if (cell.x+d[0], cell.y+d[1]) in self.energy_cell:
+							fac += 1
 					if cell.owner == self.g.uid:
 						fac *= 1/8
 					count += fac
@@ -636,10 +641,10 @@ class NamabillyAI:
 								print(self.g.Blast(base[0], base[1], "square"))
 								self.update()
 								return
-					for s in self.surroundings:
+					for s in self.directions:
 						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
 							b = self.g.GetCell(base[0], base[1])
-							if 1 < b.takeTime < 3.5:
+							if 1 < b.takeTime < 2.5:
 								# print(self.g.AttackCell(base[0], base[1], self.boost(b)))
 								self.target = []
 								self.target.append(base)
@@ -648,14 +653,14 @@ class NamabillyAI:
 						if c != None:
 							if c.owner != self.g.uid:
 								if not self.status['isTaking'] and not c.isTaking:
-									if self.get_take_time(c) <= 8:
+									if self.get_take_time(c) <= 4:
 										# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1], self.boost(c)))
 										self.target = []
 										self.target.append((base[0]+s[0], base[1]+s[1]))
 										return
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
-									if 1 < c.takeTime <= 3.5:
+									if 1 < c.takeTime <= 2.5:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
 												# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
@@ -688,7 +693,7 @@ class NamabillyAI:
 					cc = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
 					if cc != None:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
-							if 1 < c.takeTime <= 3.5:
+							if 1 < c.takeTime <= 2.5:
 								# print(self.g.AttackCell(cell[0], cell[1]))
 								self.target = []
 								self.target.append(cell)
