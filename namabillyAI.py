@@ -101,10 +101,16 @@ class NamabillyAI:
 					if self.BLAST_ENABLED:
 						point = self.blast_points[0]
 						val, type = self.get_blast_info(point)
+						if self.status['mode'] == 4:
+							if self.status['energy'] >= 40:
+								if val >= 10:
+									print(self.g.Blast(point[0], point[1], type))
+									self.update()
 						if self.status['energy'] >= 80:
 							if val >= 4:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
+						# elif self.modes[self.status['mode']] != "attack":
 						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 3:
 							if val >= 5:
 								print(self.g.Blast(point[0], point[1], type))
@@ -146,8 +152,8 @@ class NamabillyAI:
 		self.my_cell = []
 		self.enemy_base = []
 		self.on_enemy_cell = []
-		for x in range(self.g.width):
-			for y in range(self.g.height):
+		for x in range(self.g.height):
+			for y in range(self.g.width):
 				c = self.g.GetCell(x, y)
 				if c.owner == self.g.uid:
 					self.my_cell.append((x, y))
@@ -197,6 +203,25 @@ class NamabillyAI:
 					if self.g.GetCell(x, y).isTaking:
 						if (x+d[0], y+d[1]) in self.my_cell and (x+d[0], y+d[1]) not in self.border_cell:
 							self.border_cell.append((x+d[0], y+d[1]))
+		
+		# update attack info
+		if self.on_enemy != 0:
+			if self.on_enemy_base:
+				for cell in self.on_enemy_base:
+					if cell in self.neighbor_cell:
+						self.on_enemy_base_round = []
+						# baseRoundCount = 0
+						for d in self.directions:
+							c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+							if c != None:
+								if c.owner == self.on_enemy:
+									self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+									# baseRoundCount += 1
+						if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
+							self.getBaseRound = True
+						else:
+							self.getBaseRound = False
+						break
 		
 		# update blast info
 		self.blast_points = []
@@ -369,57 +394,78 @@ class NamabillyAI:
 		# mode 4 - attack
 		# get rid of other players!
 		elif self.modes[self.status['mode']] == "attack":
-			# attack base - basic
-			if self.on_enemy != 0:
-				if self.on_enemy_base:
-					for cell in self.on_enemy_base:
-						if cell in self.neighbor_cell:
-							self.on_enemy_base_round = []
-							baseRoundCount = 0
-							for d in self.directions:
-								c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
-								if c != None:
-									if c.owner == self.on_enemy:
-										self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
-										baseRoundCount += 1
-							if self.BLAST_ENABLED:
-								if baseRoundCount <= 1:
-									if self.on_enemy_base_round:
-										if self.status['energy'] >= 40:
-											round = self.on_enemy_base_round[0]
-											diff = (cell[0]-round[0], cell[1]-round[1])
-											type = "vertical" if diff[0] == 0 else "horizontal"
-											atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
-											if atkP == None:
-												atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-												type = "square"
-												if atkP == None:
-													atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-													type = "square"
-												elif atkP.owner != self.g.uid:
-													atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-													type = "square"
-											elif atkP.owner != self.g.uid:
-												atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
-												if atkP == None:
-													atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
-													type = "square"
-													if atkP == None:
-														atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-														type = "square"
-													elif atkP.owner != self.g.uid:
-														atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
-														type = "square"
-											print(self.g.Blast(atkP.x, atkP.y, type))
-											self.on_enemy_base = []
-											self.on_enemy_base_round = []
-											self.update()
-							if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
-								self.getBaseRound = True
-							else:
-								self.getBaseRound = False
-							break
-			print(len(self.on_enemy_base_round))
+			# # attack base - basic
+			# if self.on_enemy != 0:
+				# if self.on_enemy_base:
+					# for cell in self.on_enemy_base:
+						# if cell in self.neighbor_cell:
+							# self.on_enemy_base_round = []
+							# baseRoundCount = 0
+							# for d in self.directions:
+								# c = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
+								# if c != None:
+									# if c.owner == self.on_enemy:
+										# self.on_enemy_base_round.append((cell[0]+d[0], cell[1]+d[1]))
+										# baseRoundCount += 1
+							
+							# # if self.BLAST_ENABLED:
+								# # if baseRoundCount == 2:
+									# # if self.status['energy'] >= 40:
+										# # round1 = self.on_enemy_base_round[0]
+										# # round2 = self.on_enemy_base_round[1]
+										# # diff1 = (cell[0]-round1[0], cell[1]-round1[1])
+										# # diff2 = (round2[0]-cell[0], round2[1]-cell[1])
+										# # if diff1 == diff2:
+											# # type = "vertical" if diff1[0] == 0 else "horizontal"
+											# # atkP = self.g.GetCell(cell[0]+diff1[0]*2, cell[1]+diff1[1]*2)
+											# # if atkP == None or atkP.owner != self.g.uid:
+												# # atkP = self.g.GetCell(cell[0]+diff1[0]*3, cell[1]+diff1[1]*3)
+												# # if atkP == None or atkP.owner != self.g.uid:
+													# # atkP = self.g.GetCell(cell[0]-diff1[0]*2, cell[1]-diff1[1]*2)
+													# # if atkP == None or atkP.owner != self.g.uid:
+														# # atkP = self.g.GetCell(cell[0]-diff1[0]*3, cell[1]-diff1[1]*3)
+											# # if atkP != None and atkP.owner == self.g.uid:
+												# # print(self.g.Blast(atkP.x, atkP.y, type))
+												# # self.on_enemy_base = []
+												# # self.on_enemy_base_round = []
+												# # self.update()
+								# # elif baseRoundCount <= 1:
+									# # if self.on_enemy_base_round:
+										# # if self.status['energy'] >= 40:
+											# # round = self.on_enemy_base_round[0]
+											# # diff = (cell[0]-round[0], cell[1]-round[1])
+											# # type = "vertical" if diff[0] == 0 else "horizontal"
+											# # atkP = self.g.GetCell(cell[0]+diff[0], cell[1]+diff[1])
+											# # if atkP == None:
+												# # atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+												# # type = "square"
+												# # if atkP == None:
+													# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+													# # type = "square"
+												# # elif atkP.owner != self.g.uid:
+													# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+													# # type = "square"
+											# # elif atkP.owner != self.g.uid:
+												# # atkP = self.g.GetCell(cell[0]+diff[0]*2, cell[1]+diff[1]*2)
+												# # if atkP == None:
+													# # atkP = self.g.GetCell(cell[0]+diff[1], cell[1]+diff[0])
+													# # type = "square"
+													# # if atkP == None:
+														# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+														# # type = "square"
+													# # elif atkP.owner != self.g.uid:
+														# # atkP = self.g.GetCell(cell[0]-diff[1], cell[1]-diff[0])
+														# # type = "square"
+											# # print(self.g.Blast(atkP.x, atkP.y, type))
+											# # self.on_enemy_base = []
+											# # self.on_enemy_base_round = []
+											# # self.update()
+							
+							# if self.on_enemy_base_round and not self.g.GetCell(cell[0], cell[1]).isBuilding:
+								# self.getBaseRound = True
+							# else:
+								# self.getBaseRound = False
+							# break
 			if not self.getBaseRound:
 				self.dijkstra('base')
 			else:
@@ -509,6 +555,19 @@ class NamabillyAI:
 						count_square += 1
 					if c.isBase:
 						count_square += -3
+						# kill base					
+						neighbor = self.get_neighbors(((c.x, c.y),))
+						area = []
+						for s in self.surroundings:
+							if 0 <= point[0]+s[0] < self.g.height and 0 <= point[1]+s[1] < self.g.width:
+								area.append((point[0]+s[0], point[1]+s[1]))
+						neighborCount = 0
+						for cell in neighbor:
+							cc = self.g.GetCell(cell[0], cell[1])
+							if cc == None or cc.owner != c.owner or cell in area:
+								neighborCount += 1
+						if neighborCount == 4:
+							count_square += 15
 					if c.isBuilding:
 						count_square += 10
 		for h in self.horizontal:
@@ -521,6 +580,19 @@ class NamabillyAI:
 						count_horizontal += 1
 					if c.isBase:
 						count_horizontal += -3
+						# kill base
+						neighbor = self.get_neighbors(((c.x, c.y),))
+						area = []
+						for h in self.horizontal:
+							if 0 <= point[0]+h[0] < self.g.height and 0 <= point[1]+h[1] < self.g.width:
+								area.append((point[0]+h[0], point[1]+h[1]))
+						neighborCount = 0
+						for cell in neighbor:
+							cc = self.g.GetCell(cell[0], cell[1])
+							if cc == None or cc.owner != c.owner or cell in area:
+								neighborCount += 1
+						if neighborCount == 4:
+							count_horizontal += 15
 					if c.isBuilding:
 						count_horizontal += 10
 		for v in self.vertical:
@@ -533,8 +605,22 @@ class NamabillyAI:
 						count_vertical += 1
 					if c.isBase:
 						count_vertical += -3
+						# kill base
+						neighbor = self.get_neighbors(((c.x, c.y),))
+						area = []
+						for v in self.vertical:
+							if 0 <= point[0]+v[0] < self.g.height and 0 <= point[1]+v[1] < self.g.width:
+								area.append((point[0]+v[0], point[1]+v[1]))
+						neighborCount = 0
+						for cell in neighbor:
+							cc = self.g.GetCell(cell[0], cell[1])
+							if cc == None or cc.owner != c.owner or cell in area:
+								neighborCount += 1
+						if neighborCount == 4:
+							count_vertical += 15
 					if c.isBuilding:
 						count_vertical += 10
+		
 		if count_square > count:
 			count = count_square
 			type = "square"
@@ -698,6 +784,9 @@ class NamabillyAI:
 				self.gr[x][y].preBest = None
 		
 	def dijkstra(self, tar):
+		print()
+		print(tar)
+		print()
 		if self.status['isTaking']:
 			return
 		self.refresh_graph()
@@ -781,8 +870,7 @@ class NamabillyAI:
 		self.path = []
 		while(v.preBest):
 			self.path.append(v)
-			v = v.preBest
-			
+			v = v.preBest			
 	# whether boost or not
 	def boost(self, cell):
 		take_time = self.get_take_time(cell)
