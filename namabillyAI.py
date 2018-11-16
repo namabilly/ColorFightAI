@@ -612,7 +612,8 @@ class NamabillyAI:
 							random.shuffle(self.my_cell)
 							for cell in self.my_cell:
 								if cell not in self.border_cell and cell not in self.my_base\
-								and cell not in self.get_neighbors(self.my_base):
+								and cell not in self.get_neighbors(self.my_base) and cell[0] != 0\
+								and cell[0] != self.g.width-1 and cell[1] != 0 and cell[1] != self.g.height-1:
 									if not self.g.GetCell(cell[0], cell[1]).isTaking:
 										print(self.g.BuildBase(cell[0], cell[1]))
 										self.update()
@@ -621,7 +622,8 @@ class NamabillyAI:
 						random.shuffle(self.my_cell)
 						for cell in self.my_cell:
 							if cell not in self.border_cell and cell not in self.my_base\
-							and cell not in self.get_neighbors(self.my_base):
+							and cell not in self.get_neighbors(self.my_base)and cell[0] != 0\
+							and cell[0] != self.g.width-1 and cell[1] != 0 and cell[1] != self.g.height-1:
 								if not self.g.GetCell(cell[0], cell[1]).isTaking:
 									print(self.g.BuildBase(cell[0], cell[1]))
 									self.update()
