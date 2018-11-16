@@ -111,12 +111,12 @@ class NamabillyAI:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 						# elif self.modes[self.status['mode']] != "attack":
-						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 3:
-							if val >= 5:
+						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 5:
+							if val >= 10:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
-						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 5:
-							if val >= 6:
+						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 10:
+							if val >= 15:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 					self.get_target()
@@ -290,7 +290,7 @@ class NamabillyAI:
 		else:
 			self.status['mode'] = 3
 		if self.status['cellNum'] > 150:
-			if self.g.energyCellNum < 5 or self.status['energyGrowth'] < 0.8:
+			if self.g.energyCellNum < self.status['cellNum'] / 30 and self.g.energyCellNum < 18:
 				self.status['mode'] = 0
 			elif self.g.goldCellNum < 5:
 				self.status['mode'] = 1
@@ -492,7 +492,7 @@ class NamabillyAI:
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_square += 1
 					if c.isBase:
-						count_square += -3
+						count_square += -5
 						# kill base					
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
@@ -504,7 +504,7 @@ class NamabillyAI:
 							cc = self.g.GetCell(cell[0], cell[1])
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
-						if neighborCount == 4:
+						if neighborCount == len(neighbor):
 							count_square += 20
 					if c.isBuilding:
 						count_square += 15
@@ -517,7 +517,7 @@ class NamabillyAI:
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_horizontal += 1
 					if c.isBase:
-						count_horizontal += -3
+						count_horizontal += -5
 						# kill base
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
@@ -529,7 +529,7 @@ class NamabillyAI:
 							cc = self.g.GetCell(cell[0], cell[1])
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
-						if neighborCount == 4:
+						if neighborCount == len(neighbor):
 							count_horizontal += 20
 					if c.isBuilding:
 						count_horizontal += 15
@@ -542,7 +542,7 @@ class NamabillyAI:
 					if c.cellType == 'gold' or c.cellType == 'energy':
 						count_vertical += 1
 					if c.isBase:
-						count_vertical += -3
+						count_vertical += -5
 						# kill base
 						neighbor = self.get_neighbors(((c.x, c.y),))
 						area = []
@@ -554,7 +554,7 @@ class NamabillyAI:
 							cc = self.g.GetCell(cell[0], cell[1])
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
-						if neighborCount == 4:
+						if neighborCount == len(neighbor):
 							count_vertical += 20
 					if c.isBuilding:
 						count_vertical += 15
@@ -597,6 +597,8 @@ class NamabillyAI:
 					if t > time:
 						time = t
 		if count <= 1:
+			return -1
+		if time >= 8:
 			return -1
 		return count / time
 	# move - integrate to get target, defensive
@@ -644,7 +646,7 @@ class NamabillyAI:
 					for s in self.directions:
 						if (base[0]+s[0], base[1]+s[1]) in self.border_cell:
 							b = self.g.GetCell(base[0], base[1])
-							if 1 < b.takeTime < 2.5:
+							if 1 < b.takeTime < 3.1:
 								# print(self.g.AttackCell(base[0], base[1], self.boost(b)))
 								self.target = []
 								self.target.append(base)
@@ -660,7 +662,7 @@ class NamabillyAI:
 										return
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
-									if 1 < c.takeTime <= 2.5:
+									if 1 < c.takeTime <= 3.1:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
 												# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
@@ -693,7 +695,7 @@ class NamabillyAI:
 					cc = self.g.GetCell(cell[0]+d[0], cell[1]+d[1])
 					if cc != None:
 						if cc.owner != 0 and cc.owner != self.g.uid: 
-							if 1 < c.takeTime <= 2.5:
+							if 1 < c.takeTime <= 3.1:
 								# print(self.g.AttackCell(cell[0], cell[1]))
 								self.target = []
 								self.target.append(cell)
