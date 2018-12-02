@@ -54,7 +54,7 @@ class NamabillyAI:
 		self.on_enemy_base_round = []
 		self.getBaseRound = False
 		self.target = []
-		self.modes = ["energy", "gold", "fast", "safe", "attack", "defend"]
+		self.modes = ["energy", "gold", "fast", "safe", "attack", "defend", "resource"]
 		self.status = {
 			'energy': 0,
 			'energyGrowth': 0,
@@ -102,12 +102,12 @@ class NamabillyAI:
 						point = self.blast_points[0]
 						val, type = self.get_blast_info(point)
 						if self.status['mode'] == 4:
-							if self.status['energy'] >= 40:
+							if self.status['energy'] >= 60:
 								if val >= 10:
 									print(self.g.Blast(point[0], point[1], type))
 									self.update()
 						if self.status['energy'] >= 80:
-							if val >= 4:
+							if val >= 8:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 						# elif self.modes[self.status['mode']] != "attack":
@@ -115,8 +115,12 @@ class NamabillyAI:
 							if val >= 10:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
-						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 10:
+						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 8:
 							if val >= 15:
+								print(self.g.Blast(point[0], point[1], type))
+								self.update()
+						elif self.status['energy'] >= 40:
+							if val >= 20:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 					self.get_target()
@@ -280,7 +284,7 @@ class NamabillyAI:
 		elif self.status['cellNum'] < 100:
 			self.status['mode'] = 2
 		elif self.status['cellNum'] < 150:
-			self.status['mode'] = 3
+			self.status['mode'] = 6 # 3
 		elif self.neighbor_enemy:
 			self.status['mode'] = 4
 		elif self.g.energyCellNum < 18:
@@ -289,6 +293,7 @@ class NamabillyAI:
 			self.status['mode'] = 1
 		else:
 			self.status['mode'] = 3
+		
 		if self.status['cellNum'] > 150:
 			if self.g.energyCellNum < self.status['cellNum'] / 30 and self.g.energyCellNum < 18:
 				self.status['mode'] = 0
@@ -435,6 +440,19 @@ class NamabillyAI:
 		elif self.modes[self.status['mode']] == "defend":
 			self.status['mode'] = 2
 			self.get_target()
+		# mode 6 - resource
+		# energy & gold
+		elif self.modes[self.status['mode']] == "resource":
+			self.dijkstra("resource")
+			ver = None
+			if self.path:
+				ver = self.path.pop()
+			if ver:
+				self.target.append((ver.x, ver.y))
+			else:
+				self.update()
+				if self.status['isTaking']:
+					self.get_target()
 		else:
 			print("Error: mode not defined.")
 	# get the value of cell
@@ -505,9 +523,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == len(neighbor):
-							count_square += 20
+							count_square += 30
 					if c.isBuilding:
-						count_square += 15
+						count_square += 20
 		for h in self.horizontal:
 			c = self.g.GetCell(point[0]+h[0], point[1]+h[1])
 			if c != None:
@@ -530,9 +548,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == len(neighbor):
-							count_horizontal += 20
+							count_horizontal += 30
 					if c.isBuilding:
-						count_horizontal += 15
+						count_horizontal += 20
 		for v in self.vertical:
 			c = self.g.GetCell(point[0]+v[0], point[1]+v[1])
 			if c != None:
@@ -555,9 +573,9 @@ class NamabillyAI:
 							if cc == None or cc.owner != c.owner or cell in area or cc.isBase:
 								neighborCount += 1
 						if neighborCount == len(neighbor):
-							count_vertical += 20
+							count_vertical += 30
 					if c.isBuilding:
-						count_vertical += 15
+						count_vertical += 20
 		if count_square > count:
 			count = count_square
 			type = "square"
@@ -749,6 +767,10 @@ class NamabillyAI:
 			target = self.gold_cell
 		elif tar == 'base':
 			target = self.on_enemy_base
+		elif tar == 'resource':
+			target = self.gold_cell
+			for cell in self.energy_cell:
+				target.append(cell)
 		elif tar == 'base_round':
 			target = self.on_enemy_base_round
 			base = self.on_enemy_base[0]
