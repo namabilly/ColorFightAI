@@ -31,7 +31,7 @@ class NamabillyAI:
 	ENERGY_ENABLED = True
 	BASE_ENABLED = True
 	BLAST_ENABLED = True
-	MULTIATTACK_ENABLED = True
+	MULTIATTACK_ENABLED = False
 	GOLD_FAC = 12
 	ENERGY_FAC = 20
 	# defination
@@ -106,21 +106,21 @@ class NamabillyAI:
 								if val >= 10:
 									print(self.g.Blast(point[0], point[1], type))
 									self.update()
-						if self.status['energy'] >= 80:
-							if val >= 8:
+						elif self.status['energy'] >= 80:
+							if val >= 10:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 						# elif self.modes[self.status['mode']] != "attack":
 						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 5:
-							if val >= 10:
+							if val >= 12:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 8:
-							if val >= 15:
+							if val >= 20:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 						elif self.status['energy'] >= 40:
-							if val >= 20:
+							if val >= 25:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
 					self.get_target()
@@ -202,7 +202,7 @@ class NamabillyAI:
 							self.neighbor_cell.append((x+d[0], y+d[1]))
 						if c.owner not in self.neighbor_enemy and c.owner != 0:
 							self.neighbor_enemy.append(c.owner)
-						if cell not in self.border_cell:
+						if c.owner != 0 and cell not in self.border_cell:
 							self.border_cell.append(cell)
 					if self.g.GetCell(x, y).isTaking:
 						if (x+d[0], y+d[1]) in self.my_cell and (x+d[0], y+d[1]) not in self.border_cell:
@@ -468,9 +468,12 @@ class NamabillyAI:
 			val = self.ENERGY_FAC
 		else:
 			val = 1
+		for s in self.surroundings:
+			if (cell.x+s[0], cell.y+s[1]) in self.energy_cell:
+				val += 2
 		for d in self.directions:
 			if (cell.x+d[0], cell.y+d[1]) in self.energy_cell:
-				val += 1
+				val += 3
 		return val / self.get_take_time(cell)
 	# map the value in favor of corners
 	def map_corner(self, cell):
@@ -501,14 +504,19 @@ class NamabillyAI:
 		count_square = 0
 		count_horizontal = 0
 		count_vertical = 0
+		coef = 1
 		for s in self.surroundings:
 			c = self.g.GetCell(point[0]+s[0], point[1]+s[1])
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
-					count_square += 1
-					count_square += self.get_take_time(c) / 100
+					if c.owner == self.on_enemy:
+						coef = 0.5
+					else:
+						coef = 1
+					count_square += 1 * coef
+					count_square += self.get_take_time(c) * coef / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
-						count_square += 1
+						count_square += 1 * coef
 					if c.isBase:
 						count_square += -5
 						# kill base					
@@ -530,10 +538,14 @@ class NamabillyAI:
 			c = self.g.GetCell(point[0]+h[0], point[1]+h[1])
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
-					count_horizontal += 1
-					count_horizontal += self.get_take_time(c) / 100
+					if c.owner == self.on_enemy:
+						coef = 0.5
+					else:
+						coef = 1
+					count_horizontal += 1 * coef
+					count_horizontal += self.get_take_time(c) * coef / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
-						count_horizontal += 1
+						count_horizontal += 1 * coef
 					if c.isBase:
 						count_horizontal += -5
 						# kill base
@@ -555,10 +567,14 @@ class NamabillyAI:
 			c = self.g.GetCell(point[0]+v[0], point[1]+v[1])
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
-					count_vertical += 1
-					count_vertical += self.get_take_time(c) / 100
+					if c.owner == self.on_enemy:
+						coef = 0.5
+					else:
+						coef = 1
+					count_vertical += 1 * coef
+					count_vertical += self.get_take_time(c) * coef / 100
 					if c.cellType == 'gold' or c.cellType == 'energy':
-						count_vertical += 1
+						count_vertical += 1 * coef
 					if c.isBase:
 						count_vertical += -5
 						# kill base
@@ -646,6 +662,48 @@ class NamabillyAI:
 									print(self.g.BuildBase(cell[0], cell[1]))
 									self.update()
 									return
+		
+		# reinforce energy
+		if self.ENERGY_ENABLED:
+			if self.my_energy:
+				for energy in self.my_energy:
+					if self.BLAST_ENABLED:
+						count = 0
+						for s in self.surroundings:
+							c = self.g.GetCell(energy[0]+s[0], energy[1]+s[1])
+							if c!= None:
+								if c.owner != self.g.uid and c.owner != 0:
+									count += 1
+						if count >= 4:
+							if self.status['energy'] > 40:
+								print(self.g.Blast(energy[0], energy[1], "square"))
+								self.update()
+								return
+					for s in self.directions:
+						if (energy[0]+s[0], energy[1]+s[1]) in self.border_cell:
+							e = self.g.GetCell(energy[0], energy[1])
+							if 1 < e.takeTime < 3.1:
+								self.target = []
+								self.target.append(energy)
+								return
+						c = self.g.GetCell(energy[0]+s[0], energy[1]+s[1])
+						if c != None:
+							if c.owner != self.g.uid:
+								if not self.status['isTaking'] and not c.isTaking:
+									if self.get_take_time(c) <= 4:
+										# print(self.g.AttackCell(energy[0]+s[0], energy[1]+s[1], self.boost(c)))
+										self.target = []
+										self.target.append((energy[0]+s[0], energy[1]+s[1]))
+										return
+							else:
+								if not self.status['isTaking'] and not c.isTaking:
+									if 1 < c.takeTime <= 3.1:
+										for ss in self.surroundings:
+											if (c.x+ss[0], c.y+ss[1]) in self.border_cell:
+												
+												self.target = []
+												self.target.append((energy[0]+s[0], energy[1]+s[1]))
+												return
 		
 		# reinforce base
 		if self.BASE_ENABLED:
@@ -841,6 +899,9 @@ class NamabillyAI:
 	def boost(self, cell):
 		take_time = self.get_take_time(cell)
 		if self.status['energy'] > 15:
+			if cell.cellType == 'energy':
+				if take_time >= 2:
+					return True
 			if self.status['energy'] >= 90:
 				if take_time >= 1.5:
 					return True
