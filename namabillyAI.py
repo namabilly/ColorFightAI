@@ -31,13 +31,13 @@ class NamabillyAI:
 	ENERGY_ENABLED = True
 	BASE_ENABLED = True
 	BLAST_ENABLED = True
-	MULTIATTACK_ENABLED = False
+	MULTIATTACK_ENABLED = True
 	GOLD_FAC = 12
 	ENERGY_FAC = 20
 	# defination
 	def __init__(self):
 		self.g = colorfight.Game()
-		self.isJoined = self.g.JoinGame('test4.4')
+		self.isJoined = self.g.JoinGame('test4.9')
 		self.my_cell = []
 		self.neighbor_cell = []
 		self.border_cell = []
@@ -97,34 +97,40 @@ class NamabillyAI:
 			while True:
 				# do stuff
 				self.update()
-				print(self.status)
 				if not self.status['isTaking']:
+					print(self.status)
 					print("Blast Phase...")
 					if self.BLAST_ENABLED and self.blast_points:
 						point = self.blast_points[0]
 						val, type = self.get_blast_info(point)
+						print("blast val: ", val)
 						if self.status['mode'] == 4:
 							if self.status['energy'] >= 60:
 								if val >= 10:
 									print(self.g.Blast(point[0], point[1], type))
 									self.update()
+									continue
 						elif self.status['energy'] >= 80:
 							if val >= 10:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
+								continue
 						# elif self.modes[self.status['mode']] != "attack":
 						elif self.status['energy'] >= 60 and self.g.energyCellNum >= 5:
 							if val >= 12:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
+								continue
 						elif self.status['energy'] >= 40 and self.g.energyCellNum >= 8:
 							if val >= 20:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
+								continue
 						elif self.status['energy'] >= 40:
 							if val >= 25:
 								print(self.g.Blast(point[0], point[1], type))
 								self.update()
+								continue
 					print("Getting Target...")
 					self.get_target()
 					print("Target: ", self.target)
@@ -277,7 +283,7 @@ class NamabillyAI:
 			self.status['isTaking'] = False
 		else:
 			self.status['isTaking'] = True
-		print(self.status['isTaking'])
+		#print("Action taking status:", self.status['isTaking'])
 		self.status['isDangerous'] = False
 		# danger status; needs to be fixed
 		if self.status['baseNum'] == 1:
@@ -314,7 +320,7 @@ class NamabillyAI:
 		if self.status['cellNum'] > 100:
 			if self.g.energyCellNum < self.status['cellNum'] / 30 and self.g.energyCellNum < 18:
 				self.status['mode'] = 0
-			elif self.g.goldCellNum < self.status['cellNum'] / 40 and self.g.goldCellNum < 18:
+			elif self.g.goldCellNum < self.status['cellNum'] / 30 and self.g.goldCellNum < 18:
 				self.status['mode'] = 1
 		
 		# test
@@ -527,11 +533,14 @@ class NamabillyAI:
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
 					if c.owner == self.on_enemy:
-						coef = 0.5
-					else:
 						coef = 1
+					else:
+						coef = 0.5
 					if (point[0]+s[0], point[1]+s[1]) in self.neighbor_cell:
-						count_square += self.get_val(c) * self.get_take_time(c) * coef
+						time = self.get_take_time(c)
+						if time > 50:
+							time = 0
+						count_square += self.get_val(c) * time * coef
 					else:
 						count_square += 1 * coef
 						if c.cellType == 'gold':
@@ -561,11 +570,14 @@ class NamabillyAI:
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
 					if c.owner == self.on_enemy:
-						coef = 0.5
-					else:
 						coef = 1
+					else:
+						coef = 0.5
 					if (point[0]+s[0], point[1]+s[1]) in self.neighbor_cell:
-						count_horizontal += self.get_val(c) * self.get_take_time(c) * coef
+						time = self.get_take_time(c)
+						if time > 50:
+							time = 0
+						count_horizontal += self.get_val(c) * time * coef
 					else:
 						count_horizontal += 1 * coef
 						if c.cellType == 'gold':
@@ -597,11 +609,14 @@ class NamabillyAI:
 			if c != None:
 				if c.owner != self.g.uid and c.owner != 0:
 					if c.owner == self.on_enemy:
-						coef = 0.5
-					else:
 						coef = 1
+					else:
+						coef = 0.5
 					if (point[0]+s[0], point[1]+s[1]) in self.neighbor_cell:
-						count_vertical += self.get_val(c) * self.get_take_time(c) * coef
+						time = self.get_take_time(c)
+						if time > 50:
+							time = 0
+						count_vertical += self.get_val(c) * time * coef
 					else:
 						count_vertical += 1 * coef
 						if c.cellType == 'gold':
@@ -703,11 +718,41 @@ class NamabillyAI:
 		if self.ENERGY_ENABLED:
 			for energy in self.energy_cell:
 				e = self.g.GetCell(energy[0], energy[1])
-				if energy in self.neighbor_cell:
+				if energy in self.neighbor_cell and e.owner == 0:
 					self.target = []
 					self.target.append(energy)
 					return
+			for energy in self.energy_cell:
+				e = self.g.GetCell(energy[0], energy[1])
+				if energy in self.neighbor_cell:
+					if self.get_take_time(e) <= 5:
+						self.target = []
+						self.target.append(energy)
+						return
+					elif self.get_take_time(e) <= 15 and self.status['energy'] >= 15:
+						self.target = []
+						self.target.append(energy)
+						return
 		
+		# take gold
+		for gold in self.gold_cell:
+			g = self.g.GetCell(gold[0], gold[1])
+			if gold in self.neighbor_cell and g.owner == 0:
+				self.target = []
+				self.target.append(gold)
+				return
+		for gold in self.gold_cell:
+			g = self.g.GetCell(gold[0], gold[1])
+			if gold in self.neighbor_cell:
+				if self.get_take_time(g) <= 5:
+					self.target = []
+					self.target.append(gold)
+					return
+				elif self.get_take_time(g) <= 15 and self.status['energy'] >= 15:
+					self.target = []
+					self.target.append(gold)
+					return
+	
 		# reinforce energy
 		if self.ENERGY_ENABLED:
 			if self.my_energy:
@@ -727,7 +772,7 @@ class NamabillyAI:
 					for s in self.directions:
 						if (energy[0]+s[0], energy[1]+s[1]) in self.exposed_cell:
 							e = self.g.GetCell(energy[0], energy[1])
-							if 1 < e.takeTime < 3.1:
+							if 1 < e.takeTime < 3.01:
 								self.target = []
 								self.target.append(energy)
 								return
@@ -742,7 +787,7 @@ class NamabillyAI:
 										return
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
-									if 1 < c.takeTime <= 3.1:
+									if 1 < c.takeTime <= 3.01:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.exposed_cell:
 												self.target = []
@@ -768,7 +813,7 @@ class NamabillyAI:
 					for s in self.directions:
 						if (base[0]+s[0], base[1]+s[1]) in self.exposed_cell:
 							b = self.g.GetCell(base[0], base[1])
-							if 1 < b.takeTime < 3.1:
+							if 1 < b.takeTime < 3.01:
 								# print(self.g.AttackCell(base[0], base[1], self.boost(b)))
 								self.target = []
 								self.target.append(base)
@@ -784,7 +829,7 @@ class NamabillyAI:
 										return
 							else:
 								if not self.status['isTaking'] and not c.isTaking:
-									if 1 < c.takeTime <= 3.1:
+									if 1 < c.takeTime <= 3.01:
 										for ss in self.surroundings:
 											if (c.x+ss[0], c.y+ss[1]) in self.exposed_cell:
 												# print(self.g.AttackCell(base[0]+s[0], base[1]+s[1]))
